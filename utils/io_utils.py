@@ -26,6 +26,30 @@ def save_index(index, file_path):
     """
     faiss.write_index(index, str(data_dir / file_path))
 
+def load_index(file_path):
+    """
+    Load a FAISS index from a file.
+    
+    Args:
+        file_path (str): The path to the index file to load.
+        
+    Returns:
+        faiss.Index: The loaded FAISS index.
+        
+    Raises:
+        FileNotFoundError: If the index file doesn't exist.
+        RuntimeError: If the index file is corrupted or can't be loaded.
+    """
+    index_file_path = data_dir / file_path
+    
+    if not index_file_path.exists():
+        raise FileNotFoundError(f"Index file not found: {index_file_path}")
+    
+    try:
+        return faiss.read_index(str(index_file_path))
+    except Exception as e:
+        raise RuntimeError(f"Failed to load FAISS index from {index_file_path}: {e}")
+
 def save_metadata(data, file_path):
     """
     Save the metadata to a JSON file.

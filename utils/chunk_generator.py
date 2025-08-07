@@ -1,7 +1,11 @@
 import json
 from tqdm import tqdm
 
-def chunk_text(text, chunk_size=500, overlap=50):
+import pathlib
+root_dir = pathlib.Path(__file__).parent.parent
+data_dir = root_dir / 'data'
+
+def chunk_text(text, chunk_size=500, overlap=10):
     """
     Splits the input text into chunks of specified size.
     
@@ -21,8 +25,8 @@ def chunk_text(text, chunk_size=500, overlap=50):
     return chunks
 
 if __name__ == "__main__":
-    input_file = 'data/transcripts.jsonl'
-    output_file = 'data/transcript_chunks.jsonl'
+    input_file = data_dir / 'transcripts.jsonl'
+    output_file = data_dir / 'transcript_chunks.jsonl'
 
     with open(input_file, 'r', encoding='utf-8') as infile, \
          open(output_file, 'a', encoding='utf-8') as outfile:

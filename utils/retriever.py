@@ -3,8 +3,8 @@ import json
 import numpy as np
 from sentence_transformers import SentenceTransformer
 
-from utils.model_singleton import ModelSingleton
-from utils.io_utils import load_index
+from .model_singleton import ModelSingleton
+from .io_utils import load_index
 
 class Retriever:
     def __init__(self, model_name='all-MiniLM-L6-v2', index_file='faiss_transcript_index.index'):

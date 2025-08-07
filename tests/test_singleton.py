@@ -3,6 +3,13 @@
 Test script for ModelSingleton to verify it works correctly.
 """
 
+import sys
+import pathlib
+
+# Add the project root to Python path
+project_root = pathlib.Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
+
 from utils.model_singleton import ModelSingleton
 
 def test_singleton():

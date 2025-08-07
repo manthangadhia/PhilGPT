@@ -1,5 +1,12 @@
 # scripts/build_index.py
 
+import sys
+import pathlib
+
+# Add the project root to Python path
+project_root = pathlib.Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
+
 from utils.embedding_utils import embed_chunks
 from utils.io_utils import load_chunks, save_index, save_metadata
 from utils.model_singleton import ModelSingleton

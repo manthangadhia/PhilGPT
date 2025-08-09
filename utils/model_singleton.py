@@ -39,11 +39,11 @@ class ModelSingleton:
         # Check if model is cached locally
         if model_path.exists() and os.listdir(model_path):
             try:
-                print(f"Loading cached model from {model_path}")
+                # print(f"Loading cached model from {model_path}")
                 return SentenceTransformer(str(model_path))
             except Exception as e:
-                print(f"Error loading cached model: {e}")
-                print("Falling back to downloading from Hugging Face...")
+                print(f"No cached model found: {e}")
+                # print("Downloading from Hugging Face...")
         
         # Download model from Hugging Face and cache it
         try:

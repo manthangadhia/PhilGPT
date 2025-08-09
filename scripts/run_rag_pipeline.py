@@ -7,17 +7,14 @@ sys.path.insert(0, str(project_root))
 
 import ollama
 from utils.retriever import Retriever
+from utils.io_utils import load_system_prompt
 
-SYSTEM_PROMPT = """
-You are a knowledgeable assistant who is interested in philosophy and about teaching 
-others about philosophy. When asked questions, you answer them in a concise and informative manner,
-drawing from the provided context. If the context does not contain relevant information, you will say
-"I don't know" or "I don't have enough information to answer that question."
-"""
-
-def main(user_query, retriever=None):
+def main(user_query, retriever=None, SYSTEM_PROMPT=None):
     if retriever is None:
         retriever = Retriever()
+
+    if SYSTEM_PROMPT is None:
+        SYSTEM_PROMPT = load_system_prompt()
 
     response = ollama.chat(
         model="gemma3:4b",
@@ -34,6 +31,8 @@ def main(user_query, retriever=None):
 if __name__ == "__main__":
     # Initialize retriever
     retriever = Retriever()
+    # Load system prompt
+    SYSTEM_PROMPT = load_system_prompt()
 
     # Start interactive session
     print("Welcome to PhilGPT! You can ask questions about philosophy.")
@@ -41,6 +40,6 @@ if __name__ == "__main__":
 
     user_query = input("Ask your PhilGPT your question: ")
     while user_query.lower() not in quit_phrases:
-        main(user_query, retriever)
+        main(user_query, retriever, SYSTEM_PROMPT)
         user_query = input("Ask your PhilGPT your question: ")
     print("Goodbye! Thanks for using PhilGPT.")

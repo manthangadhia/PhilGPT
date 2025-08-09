@@ -61,7 +61,7 @@ def save_metadata(data, file_path):
     with open(str(data_dir / file_path), 'w', encoding='utf-8') as file:
         json.dump(data, file, ensure_ascii=False, indent=4)
 
-def load_text_from_metadata(file_path, indices):
+def load_from_metadata(file_path, indices, key="text"):
     """
     Load the text content from the metadata JSON file.
 
@@ -77,7 +77,20 @@ def load_text_from_metadata(file_path, indices):
     results = []
     for i in indices:
         if i < len(metadata):
-            results.append(metadata[i]['text'])
+            results.append(metadata[i][key])
         else:
             raise IndexError(f"Index {i} out of bounds for metadata with length {len(metadata)}")
     return results
+
+def load_system_prompt(file_path='system_prompt.txt'):
+    """
+    Load the system prompt from a text file.
+
+    Args:
+        file_path (str): The path to the system prompt file.
+
+    Returns:
+        str: The content of the system prompt.
+    """
+    with open(str(data_dir / file_path), 'r', encoding='utf-8') as file:
+        return file.read()

@@ -60,3 +60,24 @@ def save_metadata(data, file_path):
     """
     with open(str(data_dir / file_path), 'w', encoding='utf-8') as file:
         json.dump(data, file, ensure_ascii=False, indent=4)
+
+def load_text_from_metadata(file_path, indices):
+    """
+    Load the text content from the metadata JSON file.
+
+    Args:
+        file_path (str): The path to the metadata file.
+
+    Returns:
+        list: A list of text content from the metadata.
+    """
+    with open(str(data_dir / file_path), 'r', encoding='utf-8') as file:
+        metadata = json.load(file)
+    
+    results = []
+    for i in indices:
+        if i < len(metadata):
+            results.append(metadata[i]['text'])
+        else:
+            raise IndexError(f"Index {i} out of bounds for metadata with length {len(metadata)}")
+    return results

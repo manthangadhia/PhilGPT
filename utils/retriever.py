@@ -4,7 +4,7 @@ import numpy as np
 from sentence_transformers import SentenceTransformer
 
 from .model_singleton import ModelSingleton
-from .io_utils import load_index, load_text_from_metadata
+from .io_utils import load_index, load_from_metadata
 
 class Retriever:
     def __init__(self, model_name='all-MiniLM-L6-v2', index_file='faiss_transcript_index.index', metadata_file='transcript_metadata.json'):
@@ -28,7 +28,7 @@ class Retriever:
         Returns:
             list: A list of tuples containing the chunk ID and similarity score.
         """
-        
+
         query_embedding = self.model.encode([query], convert_to_tensor=True)
         distances, indices = self.index.search(query_embedding.cpu().numpy(), k)
 
@@ -42,6 +42,6 @@ class Retriever:
             i += 1
         print("--------------------")
 
-        metadata_text = load_text_from_metadata(self.metadata_file, [i[0] for i in idx])
+        metadata_text = load_from_metadata(self.metadata_file, [i[0] for i in idx])
 
         return '\n'.join(metadata_text)

@@ -34,28 +34,25 @@ def main():
     def load_prompt():
         return load_system_prompt()
     
+    def get_previous_exchange():
+        if len(st.session_state.messages) >= 2:
+            last_user = st.session_state.messages[-2]
+            last_assistant = st.session_state.messages[-1]
+            
+            if last_user["role"] == "user" and last_assistant["role"] == "assistant":
+                last_exchange = f"""
+                {last_user["content"]}
+                {last_assistant["content"]}
+                """
+                return last_exchange
+            
+        return None
+
     # UI for the RAG pipeline
     st.write("This is a question-answer machine based on transcripts from "
     "['Philosophize This!'](https://www.philosophizethis.org/)")
     st.write("The answers generated here are based directly on information presented in the podcast. "
     "(In some of the answers, the model refers to this as its *context*.)")
-
-    # user_query = st.text_input("Ask PhilGPT your question:")
-    
-    # if user_query:
-    #     with st.spinner("Thinking..."):
-    #         try:
-    #             retriever = load_retriever()
-    #             system_prompt = load_prompt()
-                
-    #             # Call the RAG pipeline
-    #             response = run_rag_pipeline(user_query, retriever, system_prompt, return_response=True)
-                
-    #             st.write("**PhilGPT's Response:**")
-    #             st.write(response)
-                
-    #         except Exception as e:
-    #             st.error(f"Error processing query: {e}")
 
     if "messages" not in st.session_state:
         st.session_state.messages = []
@@ -77,7 +74,9 @@ def main():
                 system_prompt = load_prompt()
 
                 # call rag pipeline
-                response = run_rag_pipeline(prompt, retriever, system_prompt, return_response=True)
+                response = run_rag_pipeline(prompt, retriever, system_prompt, 
+                                            previous_query=get_previous_exchange(), 
+                                            return_response=True)
                 st.session_state.messages.append({"role": "assistant", "content": response})
                 with st.chat_message("assistant"):
                     st.markdown(response)

@@ -12,7 +12,7 @@ from google import genai
 from dotenv import load_dotenv
 import os
 
-def main(user_query, retriever=None, SYSTEM_PROMPT=None, return_response=False):
+def main(user_query, retriever=None, SYSTEM_PROMPT=None, previous_query=None, return_response=False):
     if retriever is None:
         retriever = Retriever()
     if SYSTEM_PROMPT is None:
@@ -31,11 +31,15 @@ def main(user_query, retriever=None, SYSTEM_PROMPT=None, return_response=False):
         prompt = f"""
         {SYSTEM_PROMPT}
 
-        **CONTEXT**:
-        {context}
+        **PREVIOUS QUERY AND RESPONSE**:
+        {previous_query if previous_query else "N/A"}
 
         **USER QUERY**:
         {user_query}
+
+        **CONTEXT**:
+        {context}
+
         """
 
         client = genai.Client(api_key=GEMINI_API_KEY)

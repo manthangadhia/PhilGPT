@@ -23,7 +23,7 @@ import streamlit as st
 import os
 
 def main():
-    st.title("PhilGPT - Philosophy Q&A")
+    st.title("PhilGPT")
     
     # Initialize components (with caching for efficiency)
     @st.cache_resource
@@ -35,22 +35,52 @@ def main():
         return load_system_prompt()
     
     # UI for the RAG pipeline
-    st.write("Ask questions about philosophy and get informed responses!")
+    st.write("This is a question-answer machine based on transcripts from "
+    "['Philosophize This!'](https://www.philosophizethis.org/)")
+    st.write("The answers generated here are based directly on information presented in the podcast. "
+    "(In some of the answers, the model refers to this as its *context*.)")
+
+    # user_query = st.text_input("Ask PhilGPT your question:")
     
-    user_query = st.text_input("Enter your philosophy question:")
+    # if user_query:
+    #     with st.spinner("Thinking..."):
+    #         try:
+    #             retriever = load_retriever()
+    #             system_prompt = load_prompt()
+                
+    #             # Call the RAG pipeline
+    #             response = run_rag_pipeline(user_query, retriever, system_prompt, return_response=True)
+                
+    #             st.write("**PhilGPT's Response:**")
+    #             st.write(response)
+                
+    #         except Exception as e:
+    #             st.error(f"Error processing query: {e}")
+
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
     
-    if user_query:
+    # Display chat history
+    for msg in st.session_state.messages:
+        with st.chat_message(msg["role"]):
+            st.markdown(msg["content"])
+    
+    if prompt := st.chat_input("Ask PhilGPT your question:"):
+        st.session_state.messages.append({"role": "user", "content": prompt})
+        with st.chat_message("user"):
+            st.markdown(prompt)
+
+        # generate response through rag pipeline    
         with st.spinner("Thinking..."):
             try:
                 retriever = load_retriever()
                 system_prompt = load_prompt()
-                
-                # Call the RAG pipeline
-                response = run_rag_pipeline(user_query, retriever, system_prompt, return_response=True)
-                
-                st.write("**PhilGPT's Response:**")
-                st.write(response)
-                
+
+                # call rag pipeline
+                response = run_rag_pipeline(prompt, retriever, system_prompt, return_response=True)
+                st.session_state.messages.append({"role": "assistant", "content": response})
+                with st.chat_message("assistant"):
+                    st.markdown(response)
             except Exception as e:
                 st.error(f"Error processing query: {e}")
 

@@ -131,7 +131,7 @@ dmypy.json
 # RAG Pipeline specific files
 *.jsonl
 *.json
-data/
+transcripts/
 embeddings/
 vector_stores/
 models/

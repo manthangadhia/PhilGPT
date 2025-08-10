@@ -1,6 +1,10 @@
 # Load/save json, jsonl, metadata, and index files
 import json
 import os
+from dotenv import load_dotenv
+load_dotenv()
+
+import streamlit as st
 
 import faiss
 import numpy as np
@@ -82,15 +86,18 @@ def load_from_metadata(file_path, indices, key="text"):
             raise IndexError(f"Index {i} out of bounds for metadata with length {len(metadata)}")
     return results
 
-def load_system_prompt(file_path='system_prompt.txt'):
+def load_system_prompt(filename='system_prompt.txt'):
     """
-    Load the system prompt from a text file.
-
-    Args:
-        file_path (str): The path to the system prompt file.
+    Load the system prompt from the filename in the root_directory.
 
     Returns:
         str: The content of the system prompt.
     """
-    with open(str(data_dir / file_path), 'r', encoding='utf-8') as file:
+    with open(str(root_dir / filename), 'r', encoding='utf-8') as file:
         return file.read()
+    
+def load_gemini_api_key():
+    if 'GEMINI_API_KEY' in os.environ:
+        return os.environ['GEMINI_API_KEY']
+    else:
+        return st.secrets["GEMINI_API_KEY"]

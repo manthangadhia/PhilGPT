@@ -6,23 +6,17 @@ project_root = pathlib.Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 from utils.retriever import Retriever
-from utils.io_utils import load_system_prompt
+from utils.io_utils import load_system_prompt, load_gemini_api_key
 from google import genai
-
-from dotenv import load_dotenv
-import os
 
 def main(user_query, retriever=None, SYSTEM_PROMPT=None, previous_query=None, return_response=False):
     if retriever is None:
         retriever = Retriever()
     if SYSTEM_PROMPT is None:
         SYSTEM_PROMPT = load_system_prompt()
+    GEMINI_API_KEY = load_gemini_api_key()
 
     context = retriever.retrieve(user_query, k=10)
-
-    # load environment variables
-    load_dotenv()
-    GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
     # first try with gemini api
     if GEMINI_API_KEY:

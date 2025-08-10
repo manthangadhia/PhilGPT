@@ -12,17 +12,17 @@ from google import genai
 from dotenv import load_dotenv
 import os
 
-# load environment variables
-load_dotenv()
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-
-def main(user_query, retriever=None, SYSTEM_PROMPT=None):
+def main(user_query, retriever=None, SYSTEM_PROMPT=None, return_response=False):
     if retriever is None:
         retriever = Retriever()
     if SYSTEM_PROMPT is None:
         SYSTEM_PROMPT = load_system_prompt()
 
-    context = retriever.retrieve(user_query, k=8)
+    context = retriever.retrieve(user_query, k=10)
+
+    # load environment variables
+    load_dotenv()
+    GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
     # first try with gemini api
     if GEMINI_API_KEY:
@@ -58,17 +58,16 @@ def main(user_query, retriever=None, SYSTEM_PROMPT=None):
         )
         output = response['message']['content']
 
-    # print(f"Your question: {user_query}")
-    print("PhilGPT's response:")
-    print(output)
+    if return_response:
+        return output
+    else:
+        # print(f"Your question: {user_query}")
+        print("PhilGPT's response:")
+        print(output)
 
 if __name__ == "__main__":
     # Initialize retriever
-    import time
-    start = time.time()
     retriever = Retriever()
-    end = time.time()
-    print(f"Retriever total initialization time: {end - start} seconds")
 
     # Load system prompt
     SYSTEM_PROMPT = load_system_prompt()

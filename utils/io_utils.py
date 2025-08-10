@@ -93,7 +93,7 @@ def load_system_prompt(filename='system_prompt.txt'):
     Returns:
         str: The content of the system prompt.
     """
-    with open(str(root_dir / filename), 'r', encoding='utf-8') as file:
+    with open(str(data_dir / filename), 'r', encoding='utf-8') as file:
         return file.read()
     
 def load_gemini_api_key():

@@ -32,15 +32,12 @@ class Retriever:
         query_embedding = self.model.encode([query], convert_to_tensor=True)
         distances, indices = self.index.search(query_embedding.cpu().numpy(), k)
 
-        print(f"--------------------\nRetrieving query: {query}")
         idx = set()
         i = 0
         while len(idx) < k and i < len(indices[0]):
             if (indices[0][i] != -1) and not (indices[0][i] in idx):  # Check if the index is valid
-                print(f"Found index: {indices[0][i]} with distance: {distances[0][i]}")
                 idx.add((indices[0][i], float(distances[0][i])))
             i += 1
-        print("--------------------")
 
         metadata_text = load_from_metadata(self.metadata_file, [i[0] for i in idx])
 

@@ -20,7 +20,6 @@ def main(user_query, retriever=None, SYSTEM_PROMPT=None, previous_query=None, re
 
     # first try with gemini api
     if GEMINI_API_KEY:
-        print("Using Gemini API for response generation...")
 
         prompt = f"""
         {SYSTEM_PROMPT}

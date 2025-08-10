@@ -1,0 +1,1 @@
+# Scripts for index building and RAG pipeline for PhilGPT

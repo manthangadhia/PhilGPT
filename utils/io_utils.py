@@ -10,6 +10,8 @@ import faiss
 import numpy as np
 
 import pathlib
+from .embedding_config import get_version_file_path, get_version_directory
+
 root_dir = pathlib.Path(__file__).parent.parent
 data_dir = root_dir / 'data'
 
@@ -20,24 +22,55 @@ def load_chunks(file_path):
             chunks.append(json.loads(line))
     return chunks
 
-def save_index(index, file_path):
+def save_index(index, file_path, version=None):
     """
     Save the FAISS index to a file.
     
     Args:
         index (faiss.Index): The FAISS index to save.
-        file_path (str): The path to save the index file.
+        file_path (str): The path to save the index file (can be relative to data_dir or versioned).
+        version (str, optional): Version identifier for versioned storage.
     """
-    faiss.write_index(index, str(data_dir / file_path))
+    if version:
+        # Use versioned path
+        save_path = get_version_file_path(version, "faiss_index")
+        save_path.parent.mkdir(parents=True, exist_ok=True)
+    else:
+        # Use legacy path
+        save_path = data_dir / file_path
+    
+    faiss.write_index(index, str(save_path))
+    print(f"Saved FAISS index to {save_path}")
 
-def load_index(file_path):
+def load_index(file_path, version=None):
     """
     Load a FAISS index from a file.
     
     Args:
-        file_path (str): The path to the index file to load.
+        file_path (str): The path to the index file to load (can be relative to data_dir or versioned).
+        version (str, optional): Version identifier for versioned loading.
         
     Returns:
+        faiss.Index: The loaded FAISS index.
+        
+    Raises:
+        FileNotFoundError: If the index file doesn't exist.
+        RuntimeError: If the index file is corrupted or can't be loaded.
+    """
+    if version:
+        # Use versioned path
+        index_file_path = get_version_file_path(version, "faiss_index")
+    else:
+        # Use legacy path
+        index_file_path = data_dir / file_path
+    
+    if not index_file_path.exists():
+        raise FileNotFoundError(f"Index file not found: {index_file_path}")
+    
+    try:
+        return faiss.read_index(str(index_file_path))
+    except Exception as e:
+        raise RuntimeError(f"Failed to load FAISS index from {index_file_path}: {e}")
         faiss.Index: The loaded FAISS index.
         
     Raises:

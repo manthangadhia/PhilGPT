@@ -12,8 +12,8 @@ class Retriever:
         model_singleton = ModelSingleton(model_name)
         self.model = model_singleton.get_model()
 
-        # load faiss index correctly from io_utils
-        self.index = load_index(index_file)
+        # load faiss index correctly from io_utils (versioned)
+        self.index = load_index(index_file, version='v1_miniLM')
         self.index.nprobe = 10  # Set the number of probes for better recall
         self.metadata_file = metadata_file
 

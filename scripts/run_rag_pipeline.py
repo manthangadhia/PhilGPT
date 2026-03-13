@@ -1,3 +1,18 @@
+"""
+The entire RAG pipeline goes as follows, divided into offline and online tasks done at different stages and frequencies:
+
+** Offline **
+1. Scraping (done periodically using something like cron) to gather transcript files and store their (meta)data.
+2. Passing the scraped text data through `chunk_generator` to get hashable, vectorisable chunks.
+3. Embed chunks and build vector index with hashing to avoid duplication.
+4. [ADVANCED] Add a keyword search with the vector search to surface names/places/events if present in the use query which the vector index might otherwise not highlight well.
+
+** Online **
+5. Acquire user query.
+6. Embed query and retrieve top-n most-similar stored vectors.
+7. Format user query and retrieved information into system prompt and generate a response.
+"""
+
 import sys
 import pathlib
 

@@ -110,10 +110,6 @@ ENV/
 env.bak/
 venv.bak/
 
-# Pixi environment files
-pixi*
-.pixi
-
 # Spyder project settings
 .spyderproject
 .spyproject
@@ -180,3 +176,7 @@ Thumbs.db
 # pixi environments
 .pixi/*
 !.pixi/config.toml
+pixi*
+
+# Local tests
+scratchpad*

@@ -1,3 +1,12 @@
+"""
+In the first iteration, this chunking script was generating chunks in terms of character counts,
+and this did not make a lot of sense to me in hindsight since words would sometimes get split
+across chunks and even the overlap was not sufficient to capture the context.
+
+I have now adapted the script to chunk sentences up to a maximum character length, and for the
+overlap to be 1-sentence.
+"""
+
 import json
 from tqdm import tqdm
 
@@ -5,23 +14,27 @@ import pathlib
 root_dir = pathlib.Path(__file__).parent.parent
 data_dir = root_dir / 'data'
 
-def chunk_text(text, chunk_size=500, overlap=10):
-    """
-    Splits the input text into chunks of specified size.
-    
-    Args:
-        text (str): The text to be chunked.
-        chunk_size (int): The maximum size of each chunk in characters.
-        overlap (int): The number of overlapping characters between chunks.
+import nltk
+nltk.download('punkt_tab', quiet=True)
+from nltk.tokenize import sent_tokenize
 
-    Returns:
-        list: A list of text chunks.
-    """
+def chunk_text(text, chunk_size=1500, overlap=1):
+    sentences = sent_tokenize(text)
     chunks = []
-    for i in range(0, len(text), chunk_size - overlap):
-        text_chunk = text[i:i + chunk_size]
-        if text_chunk:
-            chunks.append(text_chunk)
+    current = []
+    current_len = 0
+
+    for sent in sentences:
+        if current_len + len(sent) > chunk_size and current:
+            chunks.append(" ".join(current))
+            current = current[-overlap:]  # keep last N sentences as overlap
+            current_len = sum(len(s) for s in current)
+        current.append(sent)
+        current_len += len(sent)
+
+    if current:
+        chunks.append(" ".join(current))
+
     return chunks
 
 if __name__ == "__main__":

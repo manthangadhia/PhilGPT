@@ -8,9 +8,9 @@ project_root = pathlib.Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 from utils.embedding_utils import embed_chunks
-from utils.io_utils import load_chunks, save_index, save_metadata
-from utils.model_singleton import ModelSingleton
-from utils.embedding_config import get_version_directory
+from utils.llm_utils import load_chunks, save_index, save_metadata
+from utils.model_singleton import get_cached_model
+from utils.path_config import get_version_directory
 import faiss
 from tqdm import tqdm
 
@@ -20,8 +20,7 @@ def main():
     texts = [item["text"] for item in tqdm(data)]
 
     # Step 2: Load model and embed
-    model_singleton = ModelSingleton("all-MiniLM-L6-v2")
-    model = model_singleton.get_model()
+    model = get_cached_model("all-MiniLM-L6-v2")
     embeddings = embed_chunks(model, texts)
 
     # Save embeddings into the versioned directory

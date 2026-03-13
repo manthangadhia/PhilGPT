@@ -11,8 +11,8 @@ from tqdm import tqdm
 project_root = pathlib.Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from utils.embedding_config import DATA_DIR
-from utils.model_singleton import ModelSingleton
+from utils.path_config import DATA_DIR
+from utils.model_singleton import get_cached_model
 from utils import chroma_store
 
 
@@ -51,8 +51,7 @@ def main() -> None:
             }
         )
 
-    model_singleton = ModelSingleton("all-MiniLM-L6-v2")
-    model = model_singleton.get_model()
+    model = get_cached_model("all-MiniLM-L6-v2")
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model = model.to(device)
     embeddings = model.encode(
@@ -69,7 +68,7 @@ def main() -> None:
         embeddings=embeddings.tolist(),
     )
 
-    existing_urls = chroma_store.get_existing_episode_numbers()
+    existing_urls = chroma_store.get_existing_episode_urls()
     print(f"Chroma collection currently tracks {len(existing_urls)} unique transcript URLs.")
     print(f"Documents inserted this run: {len(texts)}")
 

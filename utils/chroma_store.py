@@ -11,8 +11,8 @@ clear error messages if `chromadb` is not installed.
 from typing import List, Optional, Dict, Any
 import pathlib
 
-from .model_singleton import ModelSingleton
-from .embedding_config import DATA_DIR
+from .model_singleton import get_cached_model
+from .path_config import DATA_DIR
 
 MAX_CHROMA_BATCH_SIZE = 5000  # keep under Chroma's internal 5461 limit
 
@@ -81,8 +81,7 @@ def add_chunks(
 
     embeddings_list = None
     if embeddings is None:
-        model_singleton = ModelSingleton.get_instance(model_name)
-        model = model_singleton.get_model()
+        model = get_cached_model(model_name)
         encoded = model.encode(texts, batch_size=64, show_progress_bar=False)
         embeddings_list = [emb.tolist() for emb in encoded]
     else:
@@ -140,8 +139,7 @@ def query(
         metadata={"hnsw:space": "cosine"},
     )
 
-    model_singleton = ModelSingleton.get_instance(model_name)
-    model = model_singleton.get_model()
+    model = get_cached_model(model_name)
 
     query_embedding = model.encode([query_text], show_progress_bar=False)[0]
 

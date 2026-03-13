@@ -10,13 +10,13 @@ project_root = pathlib.Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 from utils.embedding_utils import embed_chunks
-from utils.io_utils import save_index, save_metadata
-from utils.model_singleton import ModelSingleton
-from utils.embedding_config import get_version_directory
+from utils.llm_utils import save_index, save_metadata
+from utils.model_singleton import get_cached_model
+from utils.path_config import get_version_directory
 import faiss
 import numpy as np
 from tqdm import tqdm
-from utils.io_utils import load_chunks
+from utils.llm_utils import load_chunks
 
 def run_embedding_pipeline(version='v1_miniLM', model_name='all-MiniLM-L6-v2'):
     """Run embedding pipeline and save embeddings + faiss index into version folder.
@@ -30,8 +30,7 @@ def run_embedding_pipeline(version='v1_miniLM', model_name='all-MiniLM-L6-v2'):
     texts = [item['text'] for item in tqdm(data, desc='Preparing texts')]
 
     # Load model
-    model_singleton = ModelSingleton(model_name)
-    model = model_singleton.get_model()
+    model = get_cached_model(model_name)
 
     # Embed
     embeddings = embed_chunks(model, texts)

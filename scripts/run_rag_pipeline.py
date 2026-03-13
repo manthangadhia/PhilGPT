@@ -22,7 +22,7 @@ sys.path.insert(0, str(project_root))
 CHROMA_PERSIST_DIR = project_root / "data" / "chroma"
 
 from utils.retriever import Retriever
-from utils.io_utils import load_system_prompt, load_gemini_api_key
+from utils.llm_utils import load_system_prompt, load_gemini_api_key
 from google import genai
 
 def main(user_query, 

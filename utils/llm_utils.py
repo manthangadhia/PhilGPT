@@ -5,7 +5,6 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import pathlib
-from .path_config import get_version_file_path, get_version_directory
 
 root_dir = pathlib.Path(__file__).parent.parent
 data_dir = root_dir / 'data'

@@ -12,7 +12,7 @@ from typing import List, Optional, Dict, Any
 import pathlib
 
 from .model_singleton import ModelSingleton
-from .embedding_config import DATA_DIR, get_version_config
+from .embedding_config import DATA_DIR
 
 MAX_CHROMA_BATCH_SIZE = 5000  # keep under Chroma's internal 5461 limit
 
@@ -48,7 +48,7 @@ def add_chunks(
     ids: Optional[List[str]] = None,
     embeddings: Optional[Any] = None,
     collection_name: str = "transcripts",
-    version: str = None,
+    model_name: str = "all-MiniLM-L6-v2",
     persist_directory: Optional[pathlib.Path] = None,
 ):
     """Add a batch of text chunks to a Chroma collection.
@@ -58,17 +58,13 @@ def add_chunks(
         metadatas: Optional list of metadata dicts aligned with `texts`.
         ids: Optional list of ids for the documents.
         collection_name: Name of the Chroma collection to use/create.
-        version: Embedding version key (uses embedding_config.DEFAULT_VERSION if None).
+        model_name: SentenceTransformer model name used to create embeddings when not provided.
         persist_directory: Directory to persist Chroma DB (defaults to data/chroma).
         embeddings: Optional list/array of embeddings aligned with `texts`.
 
     Returns:
         dict: raw response from chroma collection.add (if available) or summary dict.
     """
-    # Resolve version config (get_version_config accepts None and returns default)
-    cfg = get_version_config(version)
-    model_name = cfg.get("model_name")
-
     # ensure persist directory
     if persist_directory is None:
         persist_directory = DATA_DIR / "chroma"
@@ -118,7 +114,7 @@ def query(
     query_text: str,
     k: int = 5,
     collection_name: str = "transcripts",
-    version: Optional[str] = None,
+    model_name: str = "all-MiniLM-L6-v2",
     persist_directory: Optional[pathlib.Path] = None,
 ):
     """Query the Chroma collection and return nearest chunks.
@@ -127,15 +123,12 @@ def query(
         query_text: The input query string.
         k: Number of nearest neighbors to return.
         collection_name: Name of the collection to query.
-        version: Embedding version key used to select the encoder model.
+        model_name: SentenceTransformer model name used to embed the query.
         persist_directory: Directory where Chroma DB is persisted.
 
     Returns:
         dict: Dictionary with keys `ids`, `documents`, `metadatas`, and `distances`.
     """
-    cfg = get_version_config(version)
-    model_name = cfg.get("model_name")
-
     if persist_directory is None:
         persist_directory = DATA_DIR / "chroma"
     else:
@@ -156,7 +149,7 @@ def query(
     resp = collection.query(
         query_embeddings=[query_embedding.tolist()],
         n_results=k,
-        include=["ids", "documents", "metadatas", "distances"],
+        include=["documents", "metadatas", "distances"],
     )
 
     # The returned structure contains results per-query; we only sent one query
@@ -169,7 +162,7 @@ def query(
     return result
 
 
-def get_existing_episode_numbers(
+def get_existing_episode_urls(
     collection_name: str = "transcripts",
     persist_directory: Optional[pathlib.Path] = None,
 ):

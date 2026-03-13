@@ -168,3 +168,16 @@ def save_index(index, file_path, version=None):
             return os.environ['GEMINI_API_KEY']
         else:
             return st.secrets["GEMINI_API_KEY"]
+
+
+def load_system_prompt(filename='system_prompt.txt'):
+    """Load the system prompt from the data directory."""
+    with open(str(data_dir / filename), 'r', encoding='utf-8') as file:
+        return file.read()
+
+
+def load_gemini_api_key():
+    """Load Gemini API key from env vars first, then Streamlit secrets."""
+    if 'GEMINI_API_KEY' in os.environ:
+        return os.environ['GEMINI_API_KEY']
+    return st.secrets["GEMINI_API_KEY"]

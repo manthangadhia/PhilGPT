@@ -1,21 +1,20 @@
-import faiss
-import json
-import numpy as np
-from sentence_transformers import SentenceTransformer
+import pathlib
 
-from .model_singleton import ModelSingleton
-from .io_utils import load_index, load_from_metadata
+from .chroma_store import query as chroma_query
 
 class Retriever:
-    def __init__(self, model_name='all-MiniLM-L6-v2', index_file='faiss_transcript_index.index', metadata_file='transcript_metadata.json'):
-        # use modelSingleton to ensure only one instance of the model is created
-        model_singleton = ModelSingleton(model_name)
-        self.model = model_singleton.get_model()
-
-        # load faiss index correctly from io_utils (versioned)
-        self.index = load_index(index_file, version='v1_miniLM')
-        self.index.nprobe = 10  # Set the number of probes for better recall
-        self.metadata_file = metadata_file
+    def __init__(
+        self,
+        model_name='all-MiniLM-L6-v2',
+        index_file='faiss_transcript_index.index',
+        metadata_file='transcript_metadata.json',
+        collection_name='transcripts',
+        persist_directory=None,
+    ):
+        # Keep legacy args (`model_name`, `index_file`, `metadata_file`) for call-site compatibility.
+        self.model_name = model_name
+        self.collection_name = collection_name
+        self.persist_directory = pathlib.Path(persist_directory) if persist_directory else None
 
     def retrieve(self, query, k=5):
         """
@@ -29,16 +28,14 @@ class Retriever:
             list: A list of tuples containing the chunk ID and similarity score.
         """
 
-        query_embedding = self.model.encode([query], convert_to_tensor=True)
-        distances, indices = self.index.search(query_embedding.cpu().numpy(), k)
+        result = chroma_query(
+            query_text=query,
+            k=k,
+            collection_name=self.collection_name,
+            model_name=self.model_name,
+            persist_directory=self.persist_directory,
+        )
 
-        idx = set()
-        i = 0
-        while len(idx) < k and i < len(indices[0]):
-            if (indices[0][i] != -1) and not (indices[0][i] in idx):  # Check if the index is valid
-                idx.add((indices[0][i], float(distances[0][i])))
-            i += 1
-
-        metadata_text = load_from_metadata(self.metadata_file, [i[0] for i in idx])
-
-        return '\n'.join(metadata_text)
+        documents = result.get('documents') or []
+        documents = [doc for doc in documents if isinstance(doc, str)]
+        return '\n'.join(documents)

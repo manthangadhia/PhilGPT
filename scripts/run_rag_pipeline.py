@@ -19,14 +19,20 @@ import pathlib
 # Add the project root to Python path
 project_root = pathlib.Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
+CHROMA_PERSIST_DIR = project_root / "data" / "chroma"
 
 from utils.retriever import Retriever
 from utils.io_utils import load_system_prompt, load_gemini_api_key
 from google import genai
 
-def main(user_query, retriever=None, SYSTEM_PROMPT=None, previous_query=None, return_response=False):
+def main(user_query, 
+         retriever=None, 
+         SYSTEM_PROMPT=None, 
+         previous_query=None, 
+         return_response=False
+         ):
     if retriever is None:
-        retriever = Retriever()
+        retriever = Retriever(persist_directory=CHROMA_PERSIST_DIR)
     if SYSTEM_PROMPT is None:
         SYSTEM_PROMPT = load_system_prompt()
     GEMINI_API_KEY = load_gemini_api_key()
@@ -57,18 +63,18 @@ def main(user_query, retriever=None, SYSTEM_PROMPT=None, previous_query=None, re
         )
         output = response.text
 
-    else: # if no gemini api key is available, default to loading and using local ollama model
-        import ollama    
-        messages=[
-            {'role': "system", 'content': SYSTEM_PROMPT},
-            {'role': "assistant", 'content': context},
-            {'role': "user", 'content': user_query}
-        ]
-        response = ollama.chat(
-            model="gemma3:4b",
-            messages=messages
-        )
-        output = response['message']['content']
+    # else: # if no gemini api key is available, default to loading and using local ollama model
+    #     import ollama    
+    #     messages=[
+    #         {'role': "system", 'content': SYSTEM_PROMPT},
+    #         {'role': "assistant", 'content': context},
+    #         {'role': "user", 'content': user_query}
+    #     ]
+    #     response = ollama.chat(
+    #         model="gemma3:4b",
+    #         messages=messages
+    #     )
+    #     output = response['message']['content']
 
     if return_response:
         return output
@@ -79,7 +85,7 @@ def main(user_query, retriever=None, SYSTEM_PROMPT=None, previous_query=None, re
 
 if __name__ == "__main__":
     # Initialize retriever
-    retriever = Retriever()
+    retriever = Retriever(persist_directory=CHROMA_PERSIST_DIR)
 
     # Load system prompt
     SYSTEM_PROMPT = load_system_prompt()

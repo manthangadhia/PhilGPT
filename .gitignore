@@ -177,3 +177,6 @@ Thumbs.db
 *.tmp
 *.temp
 .cache/
+# pixi environments
+.pixi/*
+!.pixi/config.toml

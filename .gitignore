@@ -110,6 +110,10 @@ ENV/
 env.bak/
 venv.bak/
 
+# Pixi environment files
+pixi*
+.pixi
+
 # Spyder project settings
 .spyderproject
 .spyproject

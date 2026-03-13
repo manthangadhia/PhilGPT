@@ -14,6 +14,8 @@ import pathlib
 from .model_singleton import ModelSingleton
 from .embedding_config import DATA_DIR, get_version_config
 
+MAX_CHROMA_BATCH_SIZE = 5000  # keep under Chroma's internal 5461 limit
+
 
 def _get_chroma_client(persist_directory: Optional[pathlib.Path] = None):
     try:
@@ -44,6 +46,7 @@ def add_chunks(
     texts: List[str],
     metadatas: Optional[List[Dict[str, Any]]] = None,
     ids: Optional[List[str]] = None,
+    embeddings: Optional[Any] = None,
     collection_name: str = "transcripts",
     version: str = None,
     persist_directory: Optional[pathlib.Path] = None,
@@ -57,6 +60,7 @@ def add_chunks(
         collection_name: Name of the Chroma collection to use/create.
         version: Embedding version key (uses embedding_config.DEFAULT_VERSION if None).
         persist_directory: Directory to persist Chroma DB (defaults to data/chroma).
+        embeddings: Optional list/array of embeddings aligned with `texts`.
 
     Returns:
         dict: raw response from chroma collection.add (if available) or summary dict.
@@ -79,31 +83,35 @@ def add_chunks(
         metadata={"hnsw:space": "cosine"},
     )
 
-    model_singleton = ModelSingleton.get_instance(model_name)
-    model = model_singleton.get_model()
+    embeddings_list = None
+    if embeddings is None:
+        model_singleton = ModelSingleton.get_instance(model_name)
+        model = model_singleton.get_model()
+        encoded = model.encode(texts, batch_size=64, show_progress_bar=False)
+        embeddings_list = [emb.tolist() for emb in encoded]
+    else:
+        embeddings_list = embeddings.tolist() if hasattr(embeddings, "tolist") else embeddings
 
-    # create embeddings using the SentenceTransformer model
-    embeddings = model.encode(texts, batch_size=64, show_progress_bar=False)
+    if len(embeddings_list) != len(texts):
+        raise ValueError("Embeddings count must match texts count")
 
-    # Chroma accepts Python lists for embeddings
-    embeddings_list = [emb.tolist() for emb in embeddings]
+    results = []
+    total = len(texts)
+    for start in range(0, total, MAX_CHROMA_BATCH_SIZE):
+        end = min(start + MAX_CHROMA_BATCH_SIZE, total)
+        batch_kwargs = {
+            "documents": texts[start:end],
+            "embeddings": embeddings_list[start:end],
+        }
+        if metadatas is not None:
+            batch_kwargs["metadatas"] = metadatas[start:end]
+        if ids is not None:
+            batch_kwargs["ids"] = ids[start:end]
 
-    # Add to the collection
-    add_kwargs = dict(
-        documents=texts,
-        metadatas=metadatas,
-        ids=ids,
-        embeddings=embeddings_list,
-    )
+        batch_kwargs = {k: v for k, v in batch_kwargs.items() if v is not None}
+        results.append(collection.add(**batch_kwargs))
 
-    # Filter None values because chroma client can be strict
-    add_kwargs = {k: v for k, v in add_kwargs.items() if v is not None}
-
-    result = collection.add(**add_kwargs)
-
-    # PersistentClient handles persistence automatically; no manual persist here.
-
-    return result
+    return results[-1] if results else None
 
 
 def query(
@@ -165,9 +173,9 @@ def get_existing_episode_numbers(
     collection_name: str = "transcripts",
     persist_directory: Optional[pathlib.Path] = None,
 ):
-    """Return a set of existing `episode_number` values from the collection metadatas.
+    """Return a set of existing `url` values from the collection metadatas.
 
-    Useful to detect which episodes have already been scraped/added.
+    Useful to detect which transcript URLs have already been scraped/added.
     """
     if persist_directory is None:
         persist_directory = DATA_DIR / "chroma"
@@ -183,9 +191,11 @@ def get_existing_episode_numbers(
     results = collection.get(include=["metadatas"]) or {}
     metadatas = results.get("metadatas", [])
 
-    episode_numbers = set()
+    urls = set()
     for m in metadatas:
-        if isinstance(m, dict) and "episode_number" in m:
-            episode_numbers.add(m["episode_number"])
+        if isinstance(m, dict):
+            url = m.get("url")
+            if url:
+                urls.add(url)
 
-    return episode_numbers
+    return urls

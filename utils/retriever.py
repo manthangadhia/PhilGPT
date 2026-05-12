@@ -6,8 +6,6 @@ class Retriever:
     def __init__(
         self,
         model_name='all-MiniLM-L6-v2',
-        index_file='faiss_transcript_index.index',
-        metadata_file='transcript_metadata.json',
         collection_name='transcripts',
         persist_directory=None,
     ):

@@ -176,7 +176,8 @@ Thumbs.db
 # pixi environments
 .pixi/*
 !.pixi/config.toml
-pixi*
+pixi.lock
+pixi.toml
 
 # Local tests
 scratchpad*

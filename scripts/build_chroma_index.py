@@ -15,6 +15,8 @@ from utils.path_config import DATA_DIR
 from utils.model_singleton import get_cached_model
 from utils import chroma_store
 
+CHROMA_PERSIST_DIR = DATA_DIR / "chroma"
+
 
 def load_chunk_data() -> List[Dict[str, Any]]:
     chunks_path = DATA_DIR / "transcript_chunks.jsonl"
@@ -37,10 +39,28 @@ def main() -> None:
         print("No transcript chunks found; nothing to index.")
         return
 
+    try:
+        existing_urls = chroma_store.get_existing_episode_urls(persist_directory=CHROMA_PERSIST_DIR)
+    except Exception as e:
+        print(f"Warning: failed to read existing Chroma URLs ({e}). Proceeding with all chunks.")
+        existing_urls = set()
+
+    total_chunks = len(chunks)
+    new_chunks = [chunk for chunk in chunks if chunk.get("url") not in existing_urls]
+    skipped_chunks = total_chunks - len(new_chunks)
+
+    print(f"Total chunks found: {total_chunks}")
+    print(f"Skipped (already indexed): {skipped_chunks}")
+    print(f"New chunks to index: {len(new_chunks)}")
+
+    if not new_chunks:
+        print("No new chunks to index.")
+        return
+
     texts: List[str] = []
     ids: List[str] = []
     metadatas: List[Dict[str, Any]] = []
-    for chunk in tqdm(chunks, desc="Preparing chunks", unit="chunk"):
+    for chunk in tqdm(new_chunks, desc="Preparing chunks", unit="chunk"):
         texts.append(chunk["text"])
         ids.append(chunk["chunk_id"])
         metadatas.append(
@@ -66,10 +86,11 @@ def main() -> None:
         metadatas=metadatas,
         ids=ids,
         embeddings=embeddings.tolist(),
+        persist_directory=CHROMA_PERSIST_DIR,
     )
 
-    existing_urls = chroma_store.get_existing_episode_urls()
-    print(f"Chroma collection currently tracks {len(existing_urls)} unique transcript URLs.")
+    updated_urls = chroma_store.get_existing_episode_urls(persist_directory=CHROMA_PERSIST_DIR)
+    print(f"Chroma collection currently tracks {len(updated_urls)} unique transcript URLs.")
     print(f"Documents inserted this run: {len(texts)}")
 
 

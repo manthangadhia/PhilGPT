@@ -62,20 +62,8 @@ def main(user_query,
             contents=prompt
         )
         output = response.text
-
-    # else: # if no gemini api key is available, default to loading and using local ollama model
-    #     import ollama    
-    #     messages=[
-    #         {'role': "system", 'content': SYSTEM_PROMPT},
-    #         {'role': "assistant", 'content': context},
-    #         {'role': "user", 'content': user_query}
-    #     ]
-    #     response = ollama.chat(
-    #         model="gemma3:4b",
-    #         messages=messages
-    #     )
-    #     output = response['message']['content']
-
+    else:
+        print("No LLM Access available for generating a valid response.")
     if return_response:
         return output
     else:

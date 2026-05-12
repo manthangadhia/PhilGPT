@@ -37,18 +37,47 @@ def chunk_text(text, chunk_size=1500, overlap=1):
 
     return chunks
 
+def load_existing_chunk_urls(chunks_file: pathlib.Path) -> set:
+    if not chunks_file.exists():
+        return set()
+    existing_urls = set()
+    with chunks_file.open('r', encoding='utf-8') as infile:
+        for line in infile:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                data = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            url = data.get("url")
+            if url:
+                existing_urls.add(url)
+    return existing_urls
+
 if __name__ == "__main__":
     input_file = data_dir / 'transcripts.jsonl'
     output_file = data_dir / 'transcript_chunks.jsonl'
+
+    existing_urls = load_existing_chunk_urls(output_file)
+    total_transcripts = 0
+    skipped_transcripts = 0
+    new_transcripts = 0
 
     with open(input_file, 'r', encoding='utf-8') as infile, \
          open(output_file, 'a', encoding='utf-8') as outfile:
         
         for line in tqdm(infile, desc="Processing transcripts"):
             data = json.loads(line)
+            total_transcripts += 1
+            url = data.get("url")
+            if url and url in existing_urls:
+                skipped_transcripts += 1
+                continue
             chunks = chunk_text(data["transcript"])
             if not chunks:
                 continue
+            new_transcripts += 1
             for i, chunk in enumerate(chunks):
                 chunked_item = {
                     "episode_number": data["episode_number"],
@@ -59,3 +88,7 @@ if __name__ == "__main__":
                 }
                 json.dump(chunked_item, outfile)
                 outfile.write("\n")
+
+    print(f"Total transcripts: {total_transcripts}")
+    print(f"Skipped (already chunked): {skipped_transcripts}")
+    print(f"New transcripts chunked: {new_transcripts}")

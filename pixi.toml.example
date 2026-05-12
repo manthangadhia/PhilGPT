@@ -14,5 +14,5 @@ lxml = ">=6.1.0, <7"
 nltk = ">=3.9.4, <4"
 google-genai = ">=2.0.1, <3"
 python-dotenv = ">=1.2.2, <2"
-torch = { version = ">=2.5.1", index = "https://download.pytorch.org/whl/cu126" }
+torch = { version = ">=2.5.1", index = "https://download.pytorch.org/whl/cpu" }
 sentence-transformers = ">=5.4.1, <6"

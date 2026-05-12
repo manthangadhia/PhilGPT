@@ -1,0 +1,59 @@
+name: Scrape and Reindex
+
+on:
+  schedule:
+    - cron: '0 2 * * 1/14'  # Every two weeks on Monday at 2am UTC
+  workflow_dispatch:         # Allows manual trigger from GitHub UI
+
+jobs:
+  scrape-and-index:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo (with LFS)
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull LFS files
+        run: git lfs pull
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run scraper
+        run: python scripts/scrape.py
+        env:
+          # Add any scraping API keys here, e.g.:
+          # SCRAPE_API_KEY: ${{ secrets.SCRAPE_API_KEY }}
+
+      - name: Run chunk generator
+        run: python utils/chunk_generator.py
+
+      - name: Build Chroma index
+        run: python scripts/build_chroma_index.py
+
+      - name: Commit updated files
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/transcripts.jsonl
+          git add data/transcript_chunks.jsonl
+          git add chroma.sqlite3
+          # Only commit if there are actual changes
+          git diff --cached --quiet || git commit -m "chore: biweekly scrape and reindex [skip ci]"
+
+      - name: Push changes
+        run: git push
+
+      - name: Prune old LFS objects
+        run: |
+          git lfs prune --verify-remote
+          git push --force  # push pruned state to remote

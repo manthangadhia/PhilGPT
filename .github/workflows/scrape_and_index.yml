@@ -30,9 +30,6 @@ jobs:
 
       - name: Run scraper
         run: python scripts/scrape.py
-        env:
-          # Add any scraping API keys here, e.g.:
-          # SCRAPE_API_KEY: ${{ secrets.SCRAPE_API_KEY }}
 
       - name: Run chunk generator
         run: python utils/chunk_generator.py

@@ -9,7 +9,7 @@ sys.path.insert(0, str(project_root))
 try:
     from scripts.run_rag_pipeline import main as run_rag_pipeline
     from utils.retriever import Retriever
-    from utils.io_utils import load_system_prompt
+    from utils.llm_utils import load_system_prompt
     from dotenv import load_dotenv
     
     # Load environment variables early

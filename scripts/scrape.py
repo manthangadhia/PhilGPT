@@ -10,6 +10,9 @@ ROOT_DIR = Path(__file__).parent.parent
 DATA_DIR = ROOT_DIR / "data"
 DATA_DIR.mkdir(exist_ok=True)
 sys.path.insert(0, str(ROOT_DIR))
+CHROMA_PERSIST_DIR = DATA_DIR / "chroma"
+
+from utils.chroma_store import get_existing_episode_urls
 
 ROOT_URL = "https://www.philosophizethis.org"
 MAX_RETRIES = 3
@@ -31,7 +34,6 @@ def fetch_response_with_retry(url, max_retries, timeout):
                     f.write(url + "\n")
                 return None
         time.sleep(REQUEST_DELAY)
-
 
 def extract_text_and_metadata(full_transcript_links,
                               attempts=MAX_RETRIES,
@@ -105,8 +107,18 @@ def get_links_to_transcripts(url=ROOT_URL, max_retries=MAX_RETRIES, timeout=REQU
 if __name__ == "__main__":
     # Get all links to transcripts
     full_links = get_links_to_transcripts()
-    extract_text_and_metadata(full_links)
-    # Extract info from each transcript
-    # test_links = full_links[-5:]  # For testing, limit to last 5 links
-    # print(f"Extracting data from {len(test_links)} transcripts for testing...")
-    # print("Sample links:", test_links)
+    try:
+        existing_urls = get_existing_episode_urls(persist_directory=CHROMA_PERSIST_DIR)
+    except Exception as e:
+        print(f"Warning: failed to read existing Chroma URLs ({e}). Proceeding with all links.")
+        existing_urls = set()
+
+    new_links = [link for link in full_links if link not in existing_urls]
+    print(f"Total transcript links: {len(full_links)}")
+    print(f"Already indexed links: {len(existing_urls)}")
+    print(f"New links to scrape: {len(new_links)}")
+
+    if not new_links:
+        print("No new transcripts found. Nothing to scrape.")
+    else:
+        extract_text_and_metadata(new_links, append_mode=True)

@@ -39,12 +39,17 @@ jobs:
       - name: Build Chroma index
         run: python scripts/build_chroma_index.py
 
+      - name: Update episode mean embeddings
+        run: python utils/episode_embeddings.py
+
       - name: Commit updated files
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data/transcripts.jsonl
           git add data/transcript_chunks.jsonl
+          git add data/episode_mean_embeddings.npy
+          git add data/episode_mean_embeddings_index.json
           git add data/chroma/chroma.sqlite3
           git add data/chroma
           # Only commit if there are actual changes

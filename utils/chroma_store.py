@@ -42,6 +42,22 @@ def _get_chroma_client(persist_directory: Optional[pathlib.Path] = None):
     return chromadb.Client()
 
 
+def get_collection(
+    collection_name: str = "transcripts",
+    persist_directory: Optional[pathlib.Path] = None,
+):
+    if persist_directory is None:
+        persist_directory = DATA_DIR / "chroma"
+    else:
+        persist_directory = pathlib.Path(persist_directory)
+
+    client = _get_chroma_client(persist_directory=persist_directory)
+    return client.get_or_create_collection(
+        name=collection_name,
+        metadata={"hnsw:space": "cosine"},
+    )
+
+
 def add_chunks(
     texts: List[str],
     metadatas: Optional[List[Dict[str, Any]]] = None,

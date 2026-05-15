@@ -19,5 +19,13 @@ The overall RAG pipeline implemented here consists of the following pieces:
 3. **Vectorisation** -- All these chunks of text are vectorised using the [all-MiniLM-L6-v1](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2) embedding model running locally. This step is not carried out independently, but rather texts are vectorised *on the fly* while being added to the database.
 4. **Indexing** -- I build a ChromaDB index storing all the embedding vectors for each chunk to make it searchable, and make sure each vector is linked with relevant metadata (episode number, url, episode title): `scripts/build_chroma_index.py`
 5. **Querying** -- Given a user input, this input is encoded using the same embedding model and I conduct a search against the database to retrieve the 5 most similar (relevant) chunks. The text of these chunks is provided to a Gemini model as context along with intructions on the task to generate a coherent output via API: `scripts/run_rag_pipeline.py`
-    * Functionality coming soon: Model cites the sources; Ask questions about specific episodes by mentioning them in your query;
 6. (Bonus) **Scheduled updates** -- I setup a biweekly (once every two weeks) GitHub action to check for any new transcripts on the website, and to scrape, chunk, vectorise, and index them if so. The database hosted on GitHub will either be up-to-date, or maximally 2 weeks behind the actual latest released episode. 
+
+### PhilGPT use cases
+I have to say I worked on this project primarily as an opportunity to learn about and implement some of the information processing techniques that LLMs can be used for. I have found it fun (but unreliable) when asking questions about specific episodes (*mentioning "ep xx" or "episodes xx-xx"*) to draw connections or find insights. I'm also happy about the reliable citation behaviour (implemented through tracking metadata during retrieval) as this can let me know specific topics that were discussed in specific episodes I may want to go (back) to!
+
+
+### Limitations
+There are many limitations to this system when compared to large-scale, consumer-grade chatbots:
+1. *No memory, oops.* I mean there is a little memory, since I pass the previous prompt-response pair with each new prompt, so the LLM knows what the very previous question and answer was. 
+2. This a question-answer machine *rather than* a philosophical conversationalist--this was my original aim to stay within scope. 

@@ -23,6 +23,7 @@ CHROMA_PERSIST_DIR = project_root / "data" / "chroma"
 
 from utils.retriever import Retriever
 from utils.llm_utils import load_system_prompt, load_gemini_api_key
+from utils.episode_embeddings import find_similar_episodes
 from google import genai
 
 import re
@@ -72,7 +73,7 @@ def format_context(items):
 
 def main(user_query, 
          retriever=None, 
-         k=10,
+         base_k=10,
          SYSTEM_PROMPT=None, 
          previous_query=None, 
          return_response=False
@@ -83,7 +84,16 @@ def main(user_query,
         SYSTEM_PROMPT = load_system_prompt()
     GEMINI_API_KEY = load_gemini_api_key()
 
-    context_items = retriever.retrieve(user_query, k=k)
+    epnums = extract_episode_numbers(user_query)
+    k = base_k
+    episode_filter = None
+    if epnums:
+        k = min(10 * len(epnums), 30)
+        candidates = find_similar_episodes(epnums, top_k=20, include_original=True, exclude_self=True)
+        if candidates:
+            episode_filter = sorted(candidates)
+
+    context_items = retriever.retrieve(user_query, k=k, episode_numbers=episode_filter)
     context = format_context(context_items)
 
     # first try with gemini api
@@ -121,7 +131,7 @@ def main(user_query,
 if __name__ == "__main__":
     # Initialize retriever
     retriever = Retriever(persist_directory=CHROMA_PERSIST_DIR)
-    k = 10  # number of chunks to retrieve
+    base_k = 10  # number of chunks to retrieve
     # Load system prompt
     SYSTEM_PROMPT = load_system_prompt()
 
@@ -130,11 +140,7 @@ if __name__ == "__main__":
     quit_phrases = ["exit", "quit", "stop", "bye", "goodbye"]
     user_query = input("Ask your PhilGPT your question: ")
 
-    epnums = extract_episode_numbers(user_query)
-    if epnums:
-        k = min(10 * len(epnums), 30)  # increase k if episode numbers are mentioned
-
     while user_query.lower() not in quit_phrases:
-        main(user_query, retriever, k, SYSTEM_PROMPT)
+        main(user_query, retriever, base_k, SYSTEM_PROMPT)
         user_query = input("Ask your PhilGPT your question: ")
     print("Goodbye! Thanks for using PhilGPT.")

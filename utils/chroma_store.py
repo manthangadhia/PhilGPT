@@ -131,6 +131,7 @@ def query(
     collection_name: str = "transcripts",
     model_name: str = "all-MiniLM-L6-v2",
     persist_directory: Optional[pathlib.Path] = None,
+    episode_numbers: Optional[List[int]] = None,
 ):
     """Query the Chroma collection and return nearest chunks.
 
@@ -160,11 +161,18 @@ def query(
     query_embedding = model.encode([query_text], show_progress_bar=False)[0]
 
     # Chroma expects list of embeddings when querying
-    resp = collection.query(
-        query_embeddings=[query_embedding.tolist()],
-        n_results=k,
-        include=["documents", "metadatas", "distances"],
-    )
+    query_kwargs: Dict[str, Any] = {
+        "query_embeddings": [query_embedding.tolist()],
+        "n_results": k,
+        "include": ["documents", "metadatas", "distances"],
+    }
+
+    if episode_numbers:
+        filtered = [int(ep) for ep in episode_numbers if ep is not None]
+        if filtered:
+            query_kwargs["where"] = {"episode_number": {"$in": filtered}}
+
+    resp = collection.query(**query_kwargs)
 
     # The returned structure contains results per-query; we only sent one query
     result = {

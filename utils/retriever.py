@@ -14,13 +14,14 @@ class Retriever:
         self.collection_name = collection_name
         self.persist_directory = pathlib.Path(persist_directory) if persist_directory else None
 
-    def retrieve(self, query, k=5):
+    def retrieve(self, query, k=5, episode_numbers=None):
         """
         Retrieve the top k most similar chunks for a given query.
         
         Args:
             query (str): The query string to search for.
             k (int): The number of top results to return.
+            episode_numbers (list[int] | None): Optional episode filter.
 
         Returns:
             list: A list of dicts with chunk text and metadata fields.
@@ -32,6 +33,7 @@ class Retriever:
             collection_name=self.collection_name,
             model_name=self.model_name,
             persist_directory=self.persist_directory,
+            episode_numbers=episode_numbers,
         )
 
         documents = result.get('documents') or []

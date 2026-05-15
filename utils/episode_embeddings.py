@@ -1,7 +1,8 @@
 import json
 import pathlib
 import sys
-from typing import Dict, List, Optional
+from typing import Dict, Iterable, List, Optional, Set
+
 import numpy as np
     
 project_root = pathlib.Path(__file__).parent.parent
@@ -68,6 +69,59 @@ def save_embedding_matrix(
 ) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     np.save(path, matrix.astype(np.float32, copy=False))
+
+
+def _normalize_matrix(matrix: np.ndarray) -> np.ndarray:
+    norms = np.linalg.norm(matrix, axis=1, keepdims=True)
+    norms[norms == 0] = 1.0
+    return matrix / norms
+
+
+def find_similar_episodes(
+    episode_numbers: Iterable[int],
+    top_k: int = 20,
+    include_original: bool = True,
+    exclude_self: bool = True,
+) -> Set[int]:
+    episodes = load_episode_index()
+    if not episodes:
+        return set()
+
+    matrix = load_embedding_matrix(expected_rows=len(episodes))
+    if matrix is None or matrix.size == 0:
+        return set()
+
+    if top_k <= 0:
+        return set(episode_numbers) if include_original else set()
+
+    normalized = _normalize_matrix(matrix)
+    episode_to_index = {episode: idx for idx, episode in enumerate(episodes)}
+
+    candidates: Set[int] = set()
+    for episode in episode_numbers:
+        index = episode_to_index.get(episode)
+        if index is None:
+            continue
+
+        if include_original:
+            candidates.add(episode)
+
+        query_vec = normalized[index]
+        similarities = normalized @ query_vec
+
+        if exclude_self:
+            similarities[index] = -np.inf
+
+        available = len(episodes) - (1 if exclude_self else 0)
+        if available <= 0:
+            continue
+
+        k = min(top_k, available)
+        top_indices = np.argpartition(-similarities, k - 1)[:k]
+        for idx in top_indices:
+            candidates.add(episodes[idx])
+
+    return candidates
 
 
 def update_episode_mean_embeddings(

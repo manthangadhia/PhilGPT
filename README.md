@@ -6,8 +6,8 @@ This is a [RAG (Retrieval Augmented Generator)](https://en.wikipedia.org/wiki/Re
 ## How to PhilGPT?
 
 You have two options for interacting with this tool:
-1. You can clone this repository, set your own Gemini-API key following `.env.example`, install the python environment either in a *venv* using the `requirements.txt`, or you can use *Pixi* as your package manager as I typically do and setup your minimal dependencies using the available `pixi.toml.example` into your local `pixi.toml` file. And finally, run `scripts/run_rag_pipeline.py`. ([For a quick guide to *Pixi*, I recommend these notes by GitHub user *willdumm*.](https://gist.github.com/willdumm/6b5063877f70157536111a92974535d1))
-2. You can access a very [barebones version of PhilGPT, hosted for free on Streamlit](https://philgpt.streamlit.app/)
+1. You can access a very [barebones version of PhilGPT, hosted for free on Streamlit](https://philgpt.streamlit.app/) for a browser-based chat interface! (Easiest way to go about this, but beware that things might break if there are multiple users at once, this is not a scalable software-engineering project.)
+2. You can clone the project [GitHub repository](https://github.com/manthangadhia/PhilGPT), set your own Gemini-API key following `.env.example`, install the python environment either in a *venv* using the `requirements.txt`, or you can use *Pixi* as your package manager as I typically do and setup your minimal dependencies using the available `pixi.toml.example` into your local `pixi.toml` file. And finally, run `scripts/run_rag_pipeline.py`. ([For a quick guide to *Pixi*, I recommend these notes by GitHub user *willdumm*.](https://gist.github.com/willdumm/6b5063877f70157536111a92974535d1)).
 
 ## How did I PhilGPT?
 

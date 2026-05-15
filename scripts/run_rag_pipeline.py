@@ -25,6 +25,26 @@ from utils.retriever import Retriever
 from utils.llm_utils import load_system_prompt, load_gemini_api_key
 from google import genai
 
+import re
+
+EPISODE_BLOCK = re.compile(
+    r"\b(?:ep|eps|episode|episodes)\b[\s#]*([0-9][0-9,\s-]*)",
+    re.IGNORECASE,
+)
+RANGE = re.compile(r"(\d+)(?:\s*-\s*(\d+))?")
+
+def extract_episode_numbers(text):
+    episodes = []
+    for block_match in EPISODE_BLOCK.finditer(text):
+        block = block_match.group(1)
+        for start, end in RANGE.findall(block):
+            start_n = int(start)
+            end_n = int(end) if end else start_n
+            if end_n < start_n:
+                start_n, end_n = end_n, start_n
+            episodes.extend(range(start_n, end_n + 1))
+    return sorted(set(episodes))
+
 def format_context(items):
     if not items:
         return ""
@@ -108,8 +128,12 @@ if __name__ == "__main__":
     # Start interactive session
     print("Welcome to PhilGPT! You can ask questions about philosophy.")
     quit_phrases = ["exit", "quit", "stop", "bye", "goodbye"]
-
     user_query = input("Ask your PhilGPT your question: ")
+
+    epnums = extract_episode_numbers(user_query)
+    if epnums:
+        k = min(10 * len(epnums), 30)  # increase k if episode numbers are mentioned
+
     while user_query.lower() not in quit_phrases:
         main(user_query, retriever, k, SYSTEM_PROMPT)
         user_query = input("Ask your PhilGPT your question: ")

@@ -23,7 +23,7 @@ class Retriever:
             k (int): The number of top results to return.
 
         Returns:
-            list: A list of tuples containing the chunk ID and similarity score.
+            list: A list of dicts with chunk text and metadata fields.
         """
 
         result = chroma_query(
@@ -35,5 +35,22 @@ class Retriever:
         )
 
         documents = result.get('documents') or []
-        documents = [doc for doc in documents if isinstance(doc, str)]
-        return '\n'.join(documents)
+        metadatas = result.get('metadatas') or []
+
+        if not metadatas:
+            metadatas = [{} for _ in documents]
+
+        items = []
+        for doc, meta in zip(documents, metadatas):
+            if not isinstance(doc, str):
+                continue
+            meta = meta if isinstance(meta, dict) else {}
+            items.append(
+                {
+                    "text": doc,
+                    "episode_number": meta.get("episode_number"),
+                    "title": meta.get("title"),
+                }
+            )
+
+        return items

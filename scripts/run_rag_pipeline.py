@@ -25,8 +25,34 @@ from utils.retriever import Retriever
 from utils.llm_utils import load_system_prompt, load_gemini_api_key
 from google import genai
 
+def format_context(items):
+    if not items:
+        return ""
+
+    sections = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        text = item.get("text")
+        if not text:
+            continue
+        episode_number = item.get("episode_number")
+        title = item.get("title")
+
+        if episode_number is None:
+            header = "Episode Unknown"
+        else:
+            header = f"Episode {episode_number}"
+        if title:
+            header = f"{header} - {title}"
+
+        sections.append(f"{header}\n{text}")
+
+    return "\n\n".join(sections)
+
 def main(user_query, 
          retriever=None, 
+         k=10,
          SYSTEM_PROMPT=None, 
          previous_query=None, 
          return_response=False
@@ -37,7 +63,8 @@ def main(user_query,
         SYSTEM_PROMPT = load_system_prompt()
     GEMINI_API_KEY = load_gemini_api_key()
 
-    context = retriever.retrieve(user_query, k=10)
+    context_items = retriever.retrieve(user_query, k=k)
+    context = format_context(context_items)
 
     # first try with gemini api
     if GEMINI_API_KEY:
@@ -52,7 +79,7 @@ def main(user_query,
         {user_query}
 
         **CONTEXT**:
-        {context}
+        {context if context else "N/A"}
 
         """
 
@@ -74,7 +101,7 @@ def main(user_query,
 if __name__ == "__main__":
     # Initialize retriever
     retriever = Retriever(persist_directory=CHROMA_PERSIST_DIR)
-
+    k = 10  # number of chunks to retrieve
     # Load system prompt
     SYSTEM_PROMPT = load_system_prompt()
 
@@ -84,6 +111,6 @@ if __name__ == "__main__":
 
     user_query = input("Ask your PhilGPT your question: ")
     while user_query.lower() not in quit_phrases:
-        main(user_query, retriever, SYSTEM_PROMPT)
+        main(user_query, retriever, k, SYSTEM_PROMPT)
         user_query = input("Ask your PhilGPT your question: ")
     print("Goodbye! Thanks for using PhilGPT.")

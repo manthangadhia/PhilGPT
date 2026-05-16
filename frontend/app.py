@@ -74,9 +74,14 @@ def main():
                 system_prompt = load_prompt()
 
                 # call rag pipeline
-                response = run_rag_pipeline(prompt, retriever, system_prompt, 
-                                            previous_query=get_previous_exchange(), 
-                                            return_response=True)
+                response = run_rag_pipeline(
+                    prompt,
+                    retriever=retriever,
+                    base_k=10,
+                    SYSTEM_PROMPT=system_prompt,
+                    previous_query=get_previous_exchange(),
+                    return_response=True,
+                )
                 st.session_state.messages.append({"role": "assistant", "content": response})
                 with st.chat_message("assistant"):
                     st.markdown(response)

@@ -153,6 +153,10 @@ config.ini
 *.bin
 *.safetensors
 
+# ...except Chroma's persisted HNSW segment files, which are required
+# for the vector index to actually load (see data/chroma/<segment-uuid>/)
+!data/chroma/**
+
 # OS specific files
 .DS_Store
 .DS_Store?

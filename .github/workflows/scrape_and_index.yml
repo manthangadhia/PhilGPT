@@ -2,7 +2,7 @@ name: Scrape and Reindex
 
 on:
   schedule:
-    - cron: '0 2 * * 1/14'  # Every two weeks on Monday at 2am UTC
+    - cron: '0 2 * * 1'  # Every two weeks on Monday at 2am UTC
   workflow_dispatch:         # Allows manual trigger from GitHub UI
 
 jobs:

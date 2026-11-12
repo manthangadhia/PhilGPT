@@ -177,6 +177,8 @@
     <ol>
       <li><em>No memory, oops.</em> I mean there is a little memory, since I pass the previous prompt-response pair with each new prompt, so the LLM knows what the very previous question and answer was.</li>
       <li>This a question-answer machine <em>rather than</em> a philosophical conversationalist--this was my original aim to stay within scope.</li>
+      <li>My evaluation setup only checks the retrieval quality and not the accuracy of Gemini's results. The most reliable way to do this would be to manually check the output against both the retrieved chunks as well as the actual source episodes.</li>
+      <li>The evaluation is also "partially rigged" in that for values like <code>named-episode-share</code>, it essentially reports that my filter rules work correctly since this depends on the hard-coded slot reservation in the retriever.</li>
     </ol>
   </main>
 </body>

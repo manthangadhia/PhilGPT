@@ -48,5 +48,7 @@ I have to say I worked on this project primarily as an opportunity to learn abou
 There are many limitations to this system when compared to large-scale, consumer-grade chatbots:
 1. *No memory, oops.* I mean there is a little memory, since I pass the previous prompt-response pair with each new prompt, so the LLM knows what the very previous question and answer was. 
 2. This a question-answer machine *rather than* a philosophical conversationalist--this was my original aim to stay within scope. 
+3. My evaluation setup only checks the retrieval quality and not the accuracy of Gemini's results. The most reliable way to do this would be to manually check the output against both the retrieved chunks as well as the actual source episodes.
+4. The evaluation is also "partially rigged" in that for values like `named-episode-share`, it essentially reports that my filter rules work correctly since this depends on the hard-coded slot reservation in the retriever.
 
 <!-- **Note:** For a more personal reflection on the usage of a chat-like interface for open-ended search read: #TODO: add personal essay -->

@@ -15,6 +15,7 @@ The entire RAG pipeline goes as follows, divided into offline and online tasks d
 7. Format user query and retrieved information into system prompt and generate a response.
 """
 
+import os
 import sys
 import pathlib
 
@@ -56,6 +57,10 @@ def format_context(items):
 
     return "\n\n".join(sections)
 
+def rerank_enabled_from_env():
+    """True if the PHILGPT_RERANK environment variable asks for cross-encoder reranking."""
+    return os.getenv("PHILGPT_RERANK", "").strip().lower() in {"1", "true", "yes", "on"}
+
 def main(user_query, 
          retriever=None, 
          base_k=10,
@@ -63,12 +68,18 @@ def main(user_query,
          previous_query=None, 
          return_response=False,
          debug=False,
+         rerank=None,
          ):
     if retriever is None:
         retriever = Retriever(persist_directory=CHROMA_PERSIST_DIR)
     if SYSTEM_PROMPT is None:
         SYSTEM_PROMPT = load_system_prompt()
     GEMINI_API_KEY = load_gemini_api_key()
+
+    if rerank is None:
+        # Off by default (the hosted app uses plain hybrid search for latency);
+        # opt in locally with --rerank or PHILGPT_RERANK=1.
+        rerank = rerank_enabled_from_env()
 
     epnums = extract_episode_numbers(user_query)
     k = base_k
@@ -84,7 +95,7 @@ def main(user_query,
         k=k,
         episode_numbers=episode_filter,
         required_episodes=epnums or None,
-        rerank=True,  # cross-encoder final stage; see README "Evaluation" for the numbers
+        rerank=rerank,
     )
     context = format_context(context_items)
 
@@ -131,6 +142,8 @@ def main(user_query,
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Interactive PhilGPT session.")
     parser.add_argument("--debug", action="store_true", help="print retrieved chunks before each answer")
+    parser.add_argument("--rerank", action="store_true",
+                        help="rerank hybrid results with a cross-encoder (slower, ~+250 ms/query on CPU)")
     args = parser.parse_args()
 
     # Initialize retriever
@@ -145,6 +158,7 @@ if __name__ == "__main__":
     user_query = input("Ask your PhilGPT your question: ")
 
     while user_query.lower() not in quit_phrases:
-        main(user_query, retriever, base_k, SYSTEM_PROMPT, debug=args.debug)
+        main(user_query, retriever, base_k, SYSTEM_PROMPT, debug=args.debug,
+             rerank=args.rerank or rerank_enabled_from_env())
         user_query = input("Ask your PhilGPT your question: ")
     print("Goodbye! Thanks for using PhilGPT.")

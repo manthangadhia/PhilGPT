@@ -5,11 +5,13 @@ The entire RAG pipeline goes as follows, divided into offline and online tasks d
 1. Scraping (done periodically using something like cron) to gather transcript files and store their (meta)data.
 2. Passing the scraped text data through `chunk_generator` to get hashable, vectorisable chunks.
 3. Embed chunks and build vector index with hashing to avoid duplication.
-4. [ADVANCED] Add a keyword search with the vector search to surface names/places/events if present in the use query which the vector index might otherwise not highlight well.
+4. A BM25 keyword index (built in memory from the chunks file at load time) complements the vector
+   index, surfacing names/places/terms the embeddings might otherwise miss.
 
 ** Online **
 5. Acquire user query.
-6. Embed query and retrieve top-n most-similar stored vectors.
+6. Retrieve candidates with both vector search and BM25, fuse them with Reciprocal Rank Fusion,
+   and reserve slots for any episodes the user explicitly names.
 7. Format user query and retrieved information into system prompt and generate a response.
 """
 
@@ -24,27 +26,10 @@ CHROMA_PERSIST_DIR = project_root / "data" / "chroma"
 from utils.retriever import Retriever
 from utils.llm_utils import load_system_prompt, load_gemini_api_key
 from utils.episode_embeddings import find_similar_episodes
+from utils.query_parser import extract_episode_numbers
 from google import genai
 
-import re
-
-EPISODE_BLOCK = re.compile(
-    r"\b(?:ep|eps|episode|episodes)\b[\s#]*([0-9][0-9,\s-]*)",
-    re.IGNORECASE,
-)
-RANGE = re.compile(r"(\d+)(?:\s*-\s*(\d+))?")
-
-def extract_episode_numbers(text):
-    episodes = []
-    for block_match in EPISODE_BLOCK.finditer(text):
-        block = block_match.group(1)
-        for start, end in RANGE.findall(block):
-            start_n = int(start)
-            end_n = int(end) if end else start_n
-            if end_n < start_n:
-                start_n, end_n = end_n, start_n
-            episodes.extend(range(start_n, end_n + 1))
-    return sorted(set(episodes))
+import argparse
 
 def format_context(items):
     if not items:
@@ -76,7 +61,8 @@ def main(user_query,
          base_k=10,
          SYSTEM_PROMPT=None, 
          previous_query=None, 
-         return_response=False
+         return_response=False,
+         debug=False,
          ):
     if retriever is None:
         retriever = Retriever(persist_directory=CHROMA_PERSIST_DIR)
@@ -88,15 +74,28 @@ def main(user_query,
     k = base_k
     episode_filter = None
     if epnums:
-        k = min(10 * len(epnums), 30)
+        k = min(max(base_k, 8 * len(epnums)), 30)
         candidates = find_similar_episodes(epnums, top_k=20, include_original=True, exclude_self=True)
         if candidates:
             episode_filter = sorted(candidates)
 
-    context_items = retriever.retrieve(user_query, k=k, episode_numbers=episode_filter)
+    context_items = retriever.retrieve(
+        user_query,
+        k=k,
+        episode_numbers=episode_filter,
+        required_episodes=epnums or None,
+    )
     context = format_context(context_items)
 
-    # first try with gemini api
+    if debug:
+        print(f"[debug] episodes named: {epnums or '-'}; retrieved {len(context_items)} chunks:")
+        for item in context_items:
+            print(
+                f"[debug]   ep {item.get('episode_number')!s:>4}  {item.get('chunk_id')}  "
+                f"{item.get('sources'):<7}  {item.get('score', 0):.4f}  {item.get('title')}"
+            )
+
+    output = None
     if GEMINI_API_KEY:
 
         prompt = f"""
@@ -120,7 +119,7 @@ def main(user_query,
         )
         output = response.text
     else:
-        print("No LLM Access available for generating a valid response.")
+        output = "No LLM access is available (GEMINI_API_KEY is not set), so no answer could be generated."
     if return_response:
         return output
     else:
@@ -129,6 +128,10 @@ def main(user_query,
         print(output)
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Interactive PhilGPT session.")
+    parser.add_argument("--debug", action="store_true", help="print retrieved chunks before each answer")
+    args = parser.parse_args()
+
     # Initialize retriever
     retriever = Retriever(persist_directory=CHROMA_PERSIST_DIR)
     base_k = 10  # number of chunks to retrieve
@@ -141,6 +144,6 @@ if __name__ == "__main__":
     user_query = input("Ask your PhilGPT your question: ")
 
     while user_query.lower() not in quit_phrases:
-        main(user_query, retriever, base_k, SYSTEM_PROMPT)
+        main(user_query, retriever, base_k, SYSTEM_PROMPT, debug=args.debug)
         user_query = input("Ask your PhilGPT your question: ")
     print("Goodbye! Thanks for using PhilGPT.")

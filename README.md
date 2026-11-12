@@ -18,7 +18,12 @@ The overall RAG pipeline implemented here consists of the following pieces:
     * Each chunk has one overlapping sentence with the previous chunk for continuity of context when chunks are retrieved later.
 3. **Vectorisation** -- All these chunks of text are vectorised using the [all-MiniLM-L6-v1](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2) embedding model running locally. This step is not carried out independently, but rather texts are vectorised *on the fly* while being added to the database.
 4. **Indexing** -- I build a ChromaDB index storing all the embedding vectors for each chunk to make it searchable, and make sure each vector is linked with relevant metadata (episode number, url, episode title): `scripts/build_chroma_index.py`
-5. **Querying** -- Given a user input, this input is encoded using the same embedding model and I conduct a search against the database to retrieve the 5 most similar (relevant) chunks. The text of these chunks is provided to a Gemini model as context along with intructions on the task to generate a coherent output via API: `scripts/run_rag_pipeline.py`
+5. **Querying (hybrid retrieval)** -- Given a user input, I retrieve relevant chunks in two ways and combine them: `utils/retriever.py`
+    * *Dense search*: the query is encoded with the same embedding model and matched against the ChromaDB index (good for paraphrased, conceptual questions).
+    * *Keyword search*: a BM25 index, built in memory from `data/transcript_chunks.jsonl` when the app starts, scores chunks by exact (stemmed, accent-insensitive) term overlap (good for names and specific terms like "Žižek" or "categorical imperative"): `utils/bm25_index.py`
+    * The two rankings are merged with *Reciprocal Rank Fusion*. If the query names episodes ("ep 120", "episodes 98-99"), those references are stripped from the search text and a majority of the result slots are reserved for the named episodes; a query like "summarise episode 120" gets chunks spread evenly across that episode.
+    * The text of the retrieved chunks is provided to a Gemini model as context along with instructions on the task to generate a coherent output via API: `scripts/run_rag_pipeline.py` (add `--debug` to see which chunks were retrieved).
+    * Retrieval quality can be checked with `python scripts/eval_retrieval.py` against a small labelled query set in `data/eval_queries.jsonl`.
 6. (Bonus) **Scheduled updates** -- I setup a biweekly (once every two weeks) GitHub action to check for any new transcripts on the website, and to scrape, chunk, vectorise, and index them if so. The database hosted on GitHub will either be up-to-date, or maximally 2 weeks behind the actual latest released episode. 
 
 ### PhilGPT use cases

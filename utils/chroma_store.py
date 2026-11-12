@@ -10,6 +10,7 @@ clear error messages if `chromadb` is not installed.
 """
 from typing import List, Optional, Dict, Any
 import pathlib
+import threading
 
 from .model_singleton import get_cached_model
 from .path_config import DATA_DIR
@@ -17,7 +18,25 @@ from .path_config import DATA_DIR
 MAX_CHROMA_BATCH_SIZE = 5000  # keep under Chroma's internal 5461 limit
 
 
+_CLIENT_CACHE: Dict[str, Any] = {}
+_CLIENT_LOCK = threading.Lock()
+
+
 def _get_chroma_client(persist_directory: Optional[pathlib.Path] = None):
+    """Return a process-wide cached Chroma client (one per persist directory)."""
+    key = str(pathlib.Path(persist_directory).resolve()) if persist_directory is not None else ":memory:"
+    client = _CLIENT_CACHE.get(key)
+    if client is not None:
+        return client
+    with _CLIENT_LOCK:
+        client = _CLIENT_CACHE.get(key)
+        if client is None:
+            client = _create_chroma_client(persist_directory)
+            _CLIENT_CACHE[key] = client
+    return client
+
+
+def _create_chroma_client(persist_directory: Optional[pathlib.Path] = None):
     try:
         import chromadb
         from chromadb.config import Settings
@@ -125,6 +144,12 @@ def add_chunks(
     return results[-1] if results else None
 
 
+def embed_query(query_text: str, model_name: str = "all-MiniLM-L6-v2"):
+    """Embed a single query string with the cached sentence-transformer."""
+    model = get_cached_model(model_name)
+    return model.encode([query_text], show_progress_bar=False)[0]
+
+
 def query(
     query_text: str,
     k: int = 5,
@@ -132,6 +157,7 @@ def query(
     model_name: str = "all-MiniLM-L6-v2",
     persist_directory: Optional[pathlib.Path] = None,
     episode_numbers: Optional[List[int]] = None,
+    query_embedding: Optional[Any] = None,
 ):
     """Query the Chroma collection and return nearest chunks.
 
@@ -141,6 +167,8 @@ def query(
         collection_name: Name of the collection to query.
         model_name: SentenceTransformer model name used to embed the query.
         persist_directory: Directory where Chroma DB is persisted.
+        episode_numbers: Optional list of episode numbers to restrict the search to.
+        query_embedding: Optional precomputed query embedding (skips re-encoding).
 
     Returns:
         dict: Dictionary with keys `ids`, `documents`, `metadatas`, and `distances`.
@@ -156,13 +184,12 @@ def query(
         metadata={"hnsw:space": "cosine"},
     )
 
-    model = get_cached_model(model_name)
-
-    query_embedding = model.encode([query_text], show_progress_bar=False)[0]
+    if query_embedding is None:
+        query_embedding = embed_query(query_text, model_name=model_name)
 
     # Chroma expects list of embeddings when querying
     query_kwargs: Dict[str, Any] = {
-        "query_embeddings": [query_embedding.tolist()],
+        "query_embeddings": [list(map(float, query_embedding))],
         "n_results": k,
         "include": ["documents", "metadatas", "distances"],
     }

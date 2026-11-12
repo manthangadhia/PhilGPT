@@ -49,4 +49,4 @@ There are many limitations to this system when compared to large-scale, consumer
 1. *No memory, oops.* I mean there is a little memory, since I pass the previous prompt-response pair with each new prompt, so the LLM knows what the very previous question and answer was. 
 2. This a question-answer machine *rather than* a philosophical conversationalist--this was my original aim to stay within scope. 
 
-**Note:** For a more personal reflection on the usage of a chat-like interface for open-ended search read: #TODO: add personal essay
+<!-- **Note:** For a more personal reflection on the usage of a chat-like interface for open-ended search read: #TODO: add personal essay -->

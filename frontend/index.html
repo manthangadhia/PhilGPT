@@ -72,6 +72,27 @@
     .note {
       color: var(--muted);
     }
+    .table-wrap {
+      overflow-x: auto;
+      margin: 0 0 1em;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      font-size: 0.95em;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: 0.4em 0.65em;
+      text-align: right;
+      white-space: nowrap;
+    }
+    th:first-child, td:first-child {
+      text-align: left;
+    }
+    th {
+      background: var(--code-bg);
+    }
   </style>
 </head>
 <body>
@@ -86,7 +107,7 @@
     <p>You have two options for interacting with this tool:</p>
     <ol>
       <li>You can access a very <a href="https://philgpt.streamlit.app/" target="_blank" rel="noopener noreferrer">barebones version of PhilGPT, hosted for free on Streamlit</a> for a browser-based chat interface! (Easiest way to go about this, but beware that things might break if there are multiple users at once, this is not a scalable software-engineering project.)</li>
-      <li>You can clone the project <a href="https://github.com/manthangadhia/PhilGPT" target="_blank" rel="noopener noreferrer">GitHub repository</a>, set your own Gemini-API key following <code>.env.example</code>, install the python environment either in a <em>venv</em> using the <code>requirements.txt</code>, or you can use <em>Pixi</em> as your package manager as I typically do and setup your minimal dependencies using the available <code>pixi.toml.example</code> into your local <code>pixi.toml</code> file. And finally, run <code>scripts/run_rag_pipeline.py</code>. (<a href="https://gist.github.com/willdumm/6b5063877f70157536111a92974535d1" target="_blank" rel="noopener noreferrer">For a quick guide to <em>Pixi</em>, I recommend these notes by GitHub user <em>willdumm</em>.</a>).</li>
+      <li>You can clone the project <a href="https://github.com/manthangadhia/PhilGPT" target="_blank" rel="noopener noreferrer">GitHub repository</a>, set your own Gemini-API key following <code>.env.example</code>, install the python environment either in a <em>venv</em> using the <code>requirements.txt</code>, or you can use <em>Pixi</em> as your package manager as I typically do and setup your minimal dependencies using the available <code>pixi.toml.example</code> into your local <code>pixi.toml</code> file. And finally, run <code>scripts/run_rag_pipeline.py</code> (or <code>streamlit run frontend/app.py</code> for the chat interface). Running locally also lets you switch on an optional reranking step (see <em>Reranking</em> below). (<a href="https://gist.github.com/willdumm/6b5063877f70157536111a92974535d1" target="_blank" rel="noopener noreferrer">For a quick guide to <em>Pixi</em>, I recommend these notes by GitHub user <em>willdumm</em>.</a>).</li>
     </ol>
     <p>This description above may not be enough for some people, and in case you want to try to replicate this/run it locally and something's not working out, feel free to reach out! <a href="https://www.hellomanthan.com">Find my contact here.</a></p>
 
@@ -101,11 +122,52 @@
           <li>Each chunk has one overlapping sentence with the previous chunk for continuity of context when chunks are retrieved later.</li>
         </ul>
       </li>
-      <li><strong>Vectorisation</strong> -- All these chunks of text are vectorised using the <a href="https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2" target="_blank" rel="noopener noreferrer">all-MiniLM-L6-v1</a> embedding model running locally. This step is not carried out independently, but rather texts are vectorised <em>on the fly</em> while being added to the database.</li>
+      <li><strong>Vectorisation</strong> -- All these chunks of text are vectorised using the <a href="https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2" target="_blank" rel="noopener noreferrer">all-MiniLM-L6-v2</a> embedding model running locally. This step is not carried out independently, but rather texts are vectorised <em>on the fly</em> while being added to the database.</li>
       <li><strong>Indexing</strong> -- I build a ChromaDB index storing all the embedding vectors for each chunk to make it searchable, and make sure each vector is linked with relevant metadata (episode number, url, episode title): <code>scripts/build_chroma_index.py</code></li>
-      <li><strong>Querying</strong> -- Given a user input, this input is encoded using the same embedding model and I conduct a search against the database to retrieve the 5 most similar (relevant) chunks. The text of these chunks is provided to a Gemini model as context along with intructions on the task to generate a coherent output via API: <code>scripts/run_rag_pipeline.py</code></li>
+      <li><strong>Querying (hybrid retrieval)</strong> -- Given a user input, I retrieve relevant chunks in two ways and combine them: <code>utils/retriever.py</code>
+        <ul>
+          <li><em>Dense search</em>: the query is encoded with the same embedding model and matched against the ChromaDB index (good for paraphrased, conceptual questions).</li>
+          <li><em>Keyword search</em>: a BM25 index, built in memory from <code>data/transcript_chunks.jsonl</code> when the app starts, scores chunks by exact (stemmed, accent-insensitive) term overlap (good for names and specific terms like "Žižek" or "categorical imperative"): <code>utils/bm25_index.py</code></li>
+          <li>The two rankings are merged with <em>Reciprocal Rank Fusion</em>. If the query names episodes ("ep 120", "episodes 98-99"), those references are stripped from the search text and a majority of the result slots are reserved for the named episodes; a query like "summarise episode 120" gets chunks spread evenly across that episode.</li>
+          <li><em>Reranking (optional, off by default)</em>: the top 30 fused candidates can be re-sorted by a cross-encoder (<a href="https://huggingface.co/cross-encoder/ms-marco-MiniLM-L-6-v2" target="_blank" rel="noopener noreferrer">ms-marco-MiniLM-L-6-v2</a>), which reads the query and each chunk together to judge relevance: <code>utils/reranker.py</code>. The hosted Streamlit app uses plain hybrid search to keep answers fast. When running locally you can turn reranking on in either of two ways:
+            <ul>
+              <li>pass <code>--rerank</code> to the terminal version: <code>python scripts/run_rag_pipeline.py --rerank</code></li>
+              <li>set <code>PHILGPT_RERANK=1</code> in your <code>.env</code> (or environment); this also applies to <code>streamlit run frontend/app.py</code></li>
+              <li>the model (~90 MB) is downloaded on first use into <code>data/rerankers/</code> and adds roughly 250 ms per question on a CPU</li>
+            </ul>
+          </li>
+          <li>The text of the retrieved chunks is provided to a Gemini model as context along with instructions on the task to generate a coherent output via API: <code>scripts/run_rag_pipeline.py</code> (add <code>--debug</code> to see which chunks were retrieved).</li>
+        </ul>
+      </li>
       <li>(Bonus) <strong>Scheduled updates</strong> -- I setup a biweekly (once every two weeks) GitHub action to check for any new transcripts on the website, and to scrape, chunk, vectorise, and index them if so. The database hosted on GitHub will either be up-to-date, or maximally 2 weeks behind the actual latest released episode.</li>
     </ol>
+
+    <h4>Evaluation</h4>
+    <p><code>python scripts/eval_retrieval.py</code> compares three retrieval stages on 100 labelled queries (<code>data/eval_queries.jsonl</code>): <strong>dense</strong> only, <strong>hybrid</strong> (dense + BM25 fused with RRF), and <strong>hybrid + rerank</strong>. Relevance is episode-level: a retrieved chunk counts if it comes from an episode labelled for that query. The query groups are names/terms (45), concepts (11), paraphrases that avoid any names (34), and queries naming episodes (10).</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>stage</th>
+            <th>MRR (all, n=90)</th>
+            <th>Hit@5</th>
+            <th>P@10</th>
+            <th>MRR (paraphrase)</th>
+            <th>MRR (names)</th>
+            <th>named-episode share</th>
+            <th>latency</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>dense</td><td>0.807</td><td>0.911</td><td>0.413</td><td>0.663</td><td><strong>0.913</strong></td><td>0.829</td><td>13 ms</td></tr>
+          <tr><td>hybrid (RRF)</td><td>0.837</td><td>0.956</td><td>0.438</td><td>0.750</td><td>0.903</td><td>0.855</td><td>10 ms</td></tr>
+          <tr><td>hybrid + rerank</td><td><strong>0.842</strong></td><td><strong>0.967</strong></td><td><strong>0.443</strong></td><td><strong>0.826</strong></td><td>0.860</td><td><strong>0.874</strong></td><td>254 ms</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>What each stage adds: BM25 fusion mostly helps paraphrased and conceptual questions (paraphrase MRR +0.09) while staying level on name queries. The reranker helps paraphrases further (+0.08), but on name queries it sometimes pushes a passing mention from another episode above the main episode (MRR -0.04). Net, it is a small overall gain at about a quarter of a second per query, so it is offered as a local opt-in rather than used in the hosted app. The larger <code>BAAI/bge-reranker-base</code> scored the same overall (MRR 0.841) at about 3 s per query, so the small model stays the default (<code>--reranker</code> to compare others). P@10 is capped at 0.4 for single-episode queries, because at most 4 chunks per episode are returned. The query set is small and hand-written, so treat the numbers as indicative.</p>
 
     <h3>PhilGPT use cases</h3>
     <p>I have to say I worked on this project primarily as an opportunity to learn about and implement some of the information processing techniques that LLMs can be used for. I have found it fun (but unreliable) when asking questions about specific episodes (<em>mentioning "ep xx" or "episodes xx-xx"</em>) to draw connections or find insights. I'm also happy about the reliable citation behaviour (implemented through tracking metadata during retrieval) as this can let me know specific topics that were discussed in specific episodes I may want to go (back) to!</p>

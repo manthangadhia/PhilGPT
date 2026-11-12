@@ -16,7 +16,7 @@ The overall RAG pipeline implemented here consists of the following pieces:
 2. **Chunking** -- All the text is chunked at the sentence level: `utils/chunk_generator.py`
     * Each chunk contains multiple neighbouring sentences as long as the total number of characters is *maximally* 1500. If adding a new sentence will go over this limit, that sentence is added to the new chunk.
     * Each chunk has one overlapping sentence with the previous chunk for continuity of context when chunks are retrieved later.
-3. **Vectorisation** -- All these chunks of text are vectorised using the [all-MiniLM-L6-v1](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2) embedding model running locally. This step is not carried out independently, but rather texts are vectorised *on the fly* while being added to the database.
+3. **Vectorisation** -- All these chunks of text are vectorised using the [all-MiniLM-L6-v2](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2) embedding model running locally. This step is not carried out independently, but rather texts are vectorised *on the fly* while being added to the database.
 4. **Indexing** -- I build a ChromaDB index storing all the embedding vectors for each chunk to make it searchable, and make sure each vector is linked with relevant metadata (episode number, url, episode title): `scripts/build_chroma_index.py`
 5. **Querying (hybrid retrieval)** -- Given a user input, I retrieve relevant chunks in two ways and combine them: `utils/retriever.py`
     * *Dense search*: the query is encoded with the same embedding model and matched against the ChromaDB index (good for paraphrased, conceptual questions).

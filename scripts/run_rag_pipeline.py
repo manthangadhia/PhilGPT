@@ -84,6 +84,7 @@ def main(user_query,
         k=k,
         episode_numbers=episode_filter,
         required_episodes=epnums or None,
+        rerank=True,  # cross-encoder final stage; see README "Evaluation" for the numbers
     )
     context = format_context(context_items)
 

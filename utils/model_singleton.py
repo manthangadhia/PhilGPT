@@ -57,6 +57,49 @@ def get_cached_model(model_name: str = "all-MiniLM-L6-v2"):
     return model
 
 
+RERANKER_DIR = data_dir / "rerankers"  # gitignored; weights are downloaded on first use
+_CROSS_ENCODER_CACHE: Dict[str, Any] = {}
+
+
+def _load_cross_encoder(model_name: str):
+    try:
+        CrossEncoder = importlib.import_module("sentence_transformers").CrossEncoder
+    except Exception as e:
+        raise ImportError(
+            "sentence_transformers is required for reranking. "
+            "Install with `pip install sentence-transformers`."
+        ) from e
+
+    model_path = RERANKER_DIR / model_name.replace("/", "__")
+    if model_path.exists() and os.listdir(model_path):
+        try:
+            return CrossEncoder(str(model_path), max_length=512)
+        except Exception as e:
+            print(f"Failed to load cached cross-encoder from {model_path}: {e}")
+
+    print(f"Downloading cross-encoder '{model_name}' from Hugging Face...")
+    model = CrossEncoder(model_name, max_length=512)
+    try:
+        model_path.mkdir(parents=True, exist_ok=True)
+        model.save(str(model_path))
+    except Exception as e:  # caching is best-effort (e.g. read-only filesystems)
+        print(f"Could not cache cross-encoder to {model_path}: {e}")
+    return model
+
+
+def get_cached_cross_encoder(model_name: str):
+    """Return a cached CrossEncoder (reranker) instance for a given model name."""
+    model = _CROSS_ENCODER_CACHE.get(model_name)
+    if model is not None:
+        return model
+    with _CACHE_LOCK:
+        model = _CROSS_ENCODER_CACHE.get(model_name)
+        if model is None:
+            model = _load_cross_encoder(model_name)
+            _CROSS_ENCODER_CACHE[model_name] = model
+    return model
+
+
 def clear_cached_models(model_name: Optional[str] = None) -> None:
     """Clear one cached model or all cached models."""
     with _CACHE_LOCK:

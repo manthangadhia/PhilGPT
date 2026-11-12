@@ -22,8 +22,19 @@ The overall RAG pipeline implemented here consists of the following pieces:
     * *Dense search*: the query is encoded with the same embedding model and matched against the ChromaDB index (good for paraphrased, conceptual questions).
     * *Keyword search*: a BM25 index, built in memory from `data/transcript_chunks.jsonl` when the app starts, scores chunks by exact (stemmed, accent-insensitive) term overlap (good for names and specific terms like "Žižek" or "categorical imperative"): `utils/bm25_index.py`
     * The two rankings are merged with *Reciprocal Rank Fusion*. If the query names episodes ("ep 120", "episodes 98-99"), those references are stripped from the search text and a majority of the result slots are reserved for the named episodes; a query like "summarise episode 120" gets chunks spread evenly across that episode.
+    * *Reranking*: the top 30 fused candidates are re-sorted by a cross-encoder ([ms-marco-MiniLM-L-6-v2](https://huggingface.co/cross-encoder/ms-marco-MiniLM-L-6-v2)), which reads the query and each chunk together to judge relevance: `utils/reranker.py`
     * The text of the retrieved chunks is provided to a Gemini model as context along with instructions on the task to generate a coherent output via API: `scripts/run_rag_pipeline.py` (add `--debug` to see which chunks were retrieved).
-    * Retrieval quality can be checked with `python scripts/eval_retrieval.py` against a small labelled query set in `data/eval_queries.jsonl`.
+
+#### Evaluation
+`python scripts/eval_retrieval.py` compares three retrieval stages on 100 labelled queries (`data/eval_queries.jsonl`): **dense** only, **hybrid** (dense + BM25 fused with RRF), and **hybrid + rerank**. Relevance is episode-level: a retrieved chunk counts if it comes from an episode labelled for that query. The query groups are names/terms (45), concepts (11), paraphrases that avoid any names (34), and queries naming episodes (10).
+
+| stage | MRR (all, n=90) | Hit@5 | P@10 | MRR (paraphrase) | MRR (names) | named-episode share | latency |
+|---|---|---|---|---|---|---|---|
+| dense | 0.807 | 0.911 | 0.413 | 0.663 | **0.913** | 0.829 | 13 ms |
+| hybrid (RRF) | 0.837 | 0.956 | 0.438 | 0.750 | 0.903 | 0.855 | 10 ms |
+| hybrid + rerank | **0.842** | **0.967** | **0.443** | **0.826** | 0.860 | **0.874** | 254 ms |
+
+What each stage adds: BM25 fusion mostly helps paraphrased and conceptual questions (paraphrase MRR +0.09) while staying level on name queries. The reranker helps paraphrases further (+0.08), but on name queries it sometimes pushes a passing mention from another episode above the main episode (MRR -0.04). Net, it is a small overall gain at about a quarter of a second per query, so it is switched on. The larger `BAAI/bge-reranker-base` scored the same overall (MRR 0.841) at about 3 s per query, so the small model stays the default (`--reranker` to compare others). P@10 is capped at 0.4 for single-episode queries, because at most 4 chunks per episode are returned. The query set is small and hand-written, so treat the numbers as indicative.
 6. (Bonus) **Scheduled updates** -- I setup a biweekly (once every two weeks) GitHub action to check for any new transcripts on the website, and to scrape, chunk, vectorise, and index them if so. The database hosted on GitHub will either be up-to-date, or maximally 2 weeks behind the actual latest released episode. 
 
 ### PhilGPT use cases
@@ -34,3 +45,5 @@ I have to say I worked on this project primarily as an opportunity to learn abou
 There are many limitations to this system when compared to large-scale, consumer-grade chatbots:
 1. *No memory, oops.* I mean there is a little memory, since I pass the previous prompt-response pair with each new prompt, so the LLM knows what the very previous question and answer was. 
 2. This a question-answer machine *rather than* a philosophical conversationalist--this was my original aim to stay within scope. 
+
+**Note:** For a more personal reflection on the usage of a chat-like interface for open-ended search read: #TODO: add personal essay

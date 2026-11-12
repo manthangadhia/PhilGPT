@@ -185,3 +185,5 @@ pixi.toml
 
 # Local tests
 scratchpad*
+# Cross-encoder rerankers (downloaded on first use)
+data/rerankers/

@@ -5,6 +5,7 @@ fused with Reciprocal Rank Fusion (RRF).
 - Dense search is good at paraphrased / conceptual questions.
 - BM25 is good at exact names, terms and titles ("Zizek", "categorical imperative").
 - RRF combines the two rankings without needing their scores to be comparable.
+- Optionally, a cross-encoder reranks the top fused candidates (`rerank=True`).
 
 When the user names specific episodes, a share of the result slots is reserved
 for those episodes so that similar "neighbour" episodes can't crowd them out.
@@ -17,6 +18,7 @@ from typing import Dict, Iterable, List, Optional, Tuple
 from .bm25_index import CHUNKS_PATH, get_bm25_index
 from .chroma_store import embed_query, query as chroma_query
 from .query_parser import parse_query
+from .reranker import DEFAULT_RERANKER, rerank as rerank_fn
 
 MODES = ("hybrid", "dense", "bm25")
 
@@ -34,6 +36,8 @@ class Retriever:
         bm25_weight=1.0,
         max_per_episode=4,
         reserved_fraction=0.6,
+        reranker_model=DEFAULT_RERANKER,
+        rerank_pool=30,
     ):
         self.model_name = model_name
         self.collection_name = collection_name
@@ -45,6 +49,9 @@ class Retriever:
         self.bm25_weight = bm25_weight
         self.max_per_episode = max_per_episode
         self.reserved_fraction = reserved_fraction
+        self.reranker_model = reranker_model
+        self.rerank_pool = rerank_pool
+        self._rerank_failed = False  # set after a reranker load/run failure; later calls skip it
         self._docs: Dict[str, Dict] = {}  # chunk_id -> chunk record, filled from both sources
 
     # ----------------------------------------------------------- components
@@ -103,8 +110,12 @@ class Retriever:
         query_embedding,
         episodes: Optional[Iterable[int]],
         mode: str,
+        rerank: bool = False,
     ) -> List[Tuple[str, float, str]]:
-        """Return [(chunk_id, rrf_score, sources)] best first."""
+        """Return [(chunk_id, score, sources)] best first.
+
+        Score is the RRF score, or the cross-encoder score for the reranked head.
+        """
         episodes = set(episodes) if episodes else None
         rankings = []
         if mode in ("hybrid", "dense"):
@@ -120,10 +131,31 @@ class Retriever:
                 sources.setdefault(chunk_id, set()).add(name)
 
         ordered = sorted(scores, key=lambda cid: -scores[cid])
-        return [
+        fused = [
             (cid, scores[cid], "both" if len(sources[cid]) > 1 else next(iter(sources[cid])))
             for cid in ordered
         ]
+        if rerank and fused:
+            fused = self._rerank(text, fused)
+        return fused
+
+    def _rerank(self, text, fused):
+        """Final stage: re-sort the top `rerank_pool` fused candidates with the cross-encoder."""
+        if self._rerank_failed:
+            return fused
+        head, tail = fused[: self.rerank_pool], fused[self.rerank_pool:]
+        src_of = {cid: src for cid, _s, src in head}
+        try:
+            reranked = rerank_fn(
+                text,
+                [(cid, self._docs[cid]["text"]) for cid, _s, _src in head],
+                model_name=self.reranker_model,
+            )
+        except Exception as e:  # graceful fallback, like _dense_search
+            print(f"Warning: reranking failed ({e}); using RRF order.", file=sys.stderr)
+            self._rerank_failed = True
+            return fused
+        return [(cid, score, src_of[cid] + "+rerank") for cid, score in reranked] + tail
 
     def _spread_chunks(self, episode: int, n: int) -> List[str]:
         """Evenly spaced chunks across an episode (for topic-less 'summarise ep N')."""
@@ -149,6 +181,8 @@ class Retriever:
         episode_numbers=None,
         required_episodes=None,
         mode="hybrid",
+        rerank=False,
+        group_by_episode=True,
     ):
         """
         Retrieve the top-k most relevant chunks for a query.
@@ -162,6 +196,10 @@ class Retriever:
             required_episodes (list[int] | None): Episodes the user explicitly named;
                 a share of the k slots is reserved for them.
             mode (str): "hybrid" (default), "dense" or "bm25".
+            rerank (bool): Re-sort the top `rerank_pool` fused candidates of every
+                search pool with a cross-encoder (final retrieval stage).
+            group_by_episode (bool): Group the output by episode and transcript order
+                (nicer LLM context). False returns pure rank order (used by the eval).
 
         Returns:
             list[dict]: chunks with text, episode_number, title, chunk_id, url, score, sources.
@@ -218,21 +256,22 @@ class Retriever:
                 reserved = max(len(required), round(k * self.reserved_fraction))
                 per_ep = max(1, math.ceil(reserved / len(required)))
                 for ep in required:
-                    take(self._fused(text, query_embedding, [ep], mode), per_ep, counts=counts)
+                    take(self._fused(text, query_embedding, [ep], mode, rerank), per_ep, counts=counts)
             pool = episode_numbers or None
             cap = None if required else self.max_per_episode
-            take(self._fused(text, query_embedding, pool, mode), k - len(selected), cap, counts)
+            take(self._fused(text, query_embedding, pool, mode, rerank), k - len(selected), cap, counts)
 
-        # Group by episode (in order of each episode's best hit), then transcript order.
-        episode_rank: Dict[Optional[int], int] = {}
-        for i, (cid, _s, _src) in enumerate(selected):
-            episode_rank.setdefault(self._docs[cid].get("episode_number"), i)
-        selected.sort(
-            key=lambda item: (
-                episode_rank[self._docs[item[0]].get("episode_number")],
-                self._docs[item[0]].get("chunk_index", 0),
+        if group_by_episode:
+            # Group by episode (in order of each episode's best hit), then transcript order.
+            episode_rank: Dict[Optional[int], int] = {}
+            for i, (cid, _s, _src) in enumerate(selected):
+                episode_rank.setdefault(self._docs[cid].get("episode_number"), i)
+            selected.sort(
+                key=lambda item: (
+                    episode_rank[self._docs[item[0]].get("episode_number")],
+                    self._docs[item[0]].get("chunk_index", 0),
+                )
             )
-        )
 
         items = []
         for cid, score, src in selected:
